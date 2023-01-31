@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "3detr"
+version = "0.1.0"
+description = ""
+authors = ["wojiazaiyugang <wojiazaiyugang@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+torch = "^1.13.1"
+matplotlib = "^3.6.3"
+opencv-python = "^4.7.0.68"
+plyfile = "^0.7.4"
+trimesh = ">=2.35.39,<2.35.40"
+networkx = ">=2.2,<2.3"
+scipy = "^1.10.0"
+cython = "^0.29.33"
+numpy = "<1.24.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

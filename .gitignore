@@ -9,3 +9,8 @@ utils/build/*
 
 # outputs
 outputs/
+
+/.idea/
+/checkpoints/
+/scannet/scannet_train_detection_data/
+/scannet/scans
