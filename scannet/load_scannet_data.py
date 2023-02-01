@@ -75,6 +75,7 @@ def export(mesh_file, agg_file, seg_file, meta_file, label_map_file, output_file
                 for x in line.rstrip().strip('axisAlignment = ').split(' ')]
             break
     axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
+    # axis_align_matrix = np.identity(4)
     pts = np.ones((mesh_vertices.shape[0], 4))
     pts[:,0:3] = mesh_vertices[:,0:3]
     pts = np.dot(pts, axis_align_matrix.transpose()) # Nx4

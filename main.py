@@ -102,7 +102,7 @@ def make_args_parser():
 
     ##### Dataset #####
     parser.add_argument(
-        "--dataset_name", required=True, type=str, choices=["scannet", "sunrgbd"]
+        "--dataset_name", required=True, type=str, choices=["scannet", "sunrgbd", "tooth"]
     )
     parser.add_argument(
         "--dataset_root_dir",
@@ -400,6 +400,8 @@ def main(local_rank, args):
         if is_primary() and not os.path.isdir(args.checkpoint_dir):
             os.makedirs(args.checkpoint_dir, exist_ok=True)
         optimizer = build_optimizer(args, model_no_ddp)
+
+        # resume_from_pretrain("/home/yujiannan/Projects/3detr/checkpoints/scannet_masked_ep1080.pth", model_no_ddp, optimizer)
         loaded_epoch, best_val_metrics = resume_if_possible(
             args.checkpoint_dir, model_no_ddp, optimizer
         )
@@ -422,6 +424,23 @@ def launch_distributed(args):
         main(local_rank=0, args=args)
     else:
         torch.multiprocessing.spawn(main, nprocs=world_size, args=(args,))
+
+
+def resume_from_pretrain(pretrain_pth, model_no_ddp, optimizer):
+    epoch = -1
+    best_val_metrics = {}
+    sd = torch.load(pretrain_pth, map_location=torch.device("cpu"))
+    del sd["model"]["mlp_heads.sem_cls_head.layers.8.weight"]
+    del sd["model"]["mlp_heads.sem_cls_head.layers.8.bias"]
+    # epoch = sd["epoch"]
+    # best_val_metrics = sd["best_val_metrics"]
+    print(f"Found checkpoint at {epoch}. Resuming.")
+    model_no_ddp.load_state_dict(sd["model"], strict=False)
+    # optimizer.load_state_dict(sd["optimizer"])
+    # print(
+    #     f"Loaded model and optimizer state at {epoch}. Loaded best val metrics so far."
+    # )
+    return epoch, best_val_metrics
 
 
 if __name__ == "__main__":
