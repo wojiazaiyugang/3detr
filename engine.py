@@ -7,7 +7,7 @@ import time
 import sys
 
 from torch.distributed.distributed_c10d import reduce
-from utils.ap_calculator import APCalculator
+from utils.ap_calculator import APCalculator, parse_predictions, get_ap_config_dict
 from utils.misc import SmoothedValue
 from utils.dist import (
     all_gather_dict,
@@ -53,7 +53,6 @@ def train_one_epoch(
     dataset_loader,
     logger,
 ):
-
     ap_calculator = APCalculator(
         dataset_config=dataset_config,
         ap_iou_thresh=[0.25, 0.5],
@@ -147,7 +146,6 @@ def evaluate(
     logger,
     curr_train_iter,
 ):
-
     # ap calculator is exact for evaluation. This is slower than the ap calculator used during training.
     ap_calculator = APCalculator(
         dataset_config=dataset_config,
@@ -178,6 +176,8 @@ def evaluate(
         }
         outputs = model(inputs)
 
+        config_dict = get_ap_config_dict(remove_empty_box=False, dataset_config=dataset_config)
+        parse_output(None, outputs["outputs"],config_dict)
         # Compute loss
         loss_str = ""
         if criterion is not None:
@@ -214,3 +214,10 @@ def evaluate(
         logger.log_scalars(test_dict, curr_train_iter, prefix="Test/")
 
     return ap_calculator
+
+
+def parse_output(point_clouds, outputs, config_dict):
+
+    batch_pred_map_cls = parse_predictions(outputs["box_corners"], outputs["sem_cls_prob"], outputs["objectness_prob"],
+                                           point_clouds, config_dict)
+    print(batch_pred_map_cls)
