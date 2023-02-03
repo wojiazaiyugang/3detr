@@ -35,7 +35,7 @@ class ScannetDatasetConfig(object):
         }
         self.class2type = {self.type2class[t]: t for t in self.type2class}
         self.nyu40ids = np.array(
-            [1]
+            [0]
         )
         self.nyu40id2class = {
             nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids))
@@ -50,7 +50,7 @@ class ScannetDatasetConfig(object):
             self.type2class_semseg[t]: t for t in self.type2class_semseg
         }
         self.nyu40ids_semseg = np.array(
-            [1]
+            [0]
         )
         self.nyu40id2class_semseg = {
             nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids_semseg))
