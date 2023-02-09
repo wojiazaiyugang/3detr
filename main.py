@@ -239,7 +239,7 @@ def do_train(
                 curr_iter,
             )
             metrics = ap_calculator.compute_metrics()
-            ap25 = metrics[0.25]["mAP"]
+            ap75 = metrics[0.75]["mAP"]
             metric_str = ap_calculator.metrics_to_str(metrics, per_class=True)
             metrics_dict = ap_calculator.metrics_to_dict(metrics)
             if is_primary():
@@ -249,7 +249,7 @@ def do_train(
                 logger.log_scalars(metrics_dict, curr_iter, prefix="Test/")
 
             if is_primary() and (
-                len(best_val_metrics) == 0 or best_val_metrics[0.25]["mAP"] < ap25
+                len(best_val_metrics) == 0 or best_val_metrics[0.25]["mAP"] < ap75
             ):
                 best_val_metrics = metrics
                 filename = "checkpoint_best.pth"
@@ -263,7 +263,7 @@ def do_train(
                     filename=filename,
                 )
                 print(
-                    f"Epoch [{epoch}/{args.max_epoch}] saved current best val checkpoint at {filename}; ap25 {ap25}"
+                    f"Epoch [{epoch}/{args.max_epoch}] saved current best val checkpoint at {filename}; ap75 {ap75}"
                 )
 
     # always evaluate last checkpoint
