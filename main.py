@@ -249,7 +249,7 @@ def do_train(
                 logger.log_scalars(metrics_dict, curr_iter, prefix="Test/")
 
             if is_primary() and (
-                len(best_val_metrics) == 0 or best_val_metrics[0.25]["mAP"] < ap75
+                len(best_val_metrics) == 0 or best_val_metrics[0.75]["mAP"] < ap75
             ):
                 best_val_metrics = metrics
                 filename = "checkpoint_best.pth"

@@ -20,8 +20,8 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/tooth_det_3detr"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/tooth_det_3detr" ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/tooth_det_3detr_farthest_sample/"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/tooth_det_3detr_farthest_sample/"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -72,13 +72,13 @@ class ScannetDatasetConfig(object):
         return zero_angle
 
     def param2obb(
-        self,
-        center,
-        heading_class,
-        heading_residual,
-        size_class,
-        size_residual,
-        box_size=None,
+            self,
+            center,
+            heading_class,
+            heading_residual,
+            size_class,
+            size_residual,
+            box_size=None,
     ):
         heading_angle = self.class2angle(heading_class, heading_residual)
         if box_size is None:
@@ -125,17 +125,17 @@ class ScannetDatasetConfig(object):
 
 class ScannetDetectionDataset(Dataset):
     def __init__(
-        self,
-        dataset_config,
-        split_set="train",
-        root_dir=None,
-        meta_data_dir=None,
-        num_points=40000,
-        use_color=False,
-        use_height=False,
-        augment=False,
-        use_random_cuboid=True,
-        random_cuboid_min_points=30000,
+            self,
+            dataset_config,
+            split_set="train",
+            root_dir=None,
+            meta_data_dir=None,
+            num_points=40000,
+            use_color=False,
+            use_height=False,
+            augment=False,
+            use_random_cuboid=False,
+            random_cuboid_min_points=30000,
     ):
 
         self.dataset_config = dataset_config
@@ -218,22 +218,22 @@ class ScannetDetectionDataset(Dataset):
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
 
-        if self.augment and self.use_random_cuboid:
-            (
-                point_cloud,
-                instance_bboxes,
-                per_point_labels,
-            ) = self.random_cuboid_augmentor(
-                point_cloud, instance_bboxes, [instance_labels, semantic_labels]
-            )
-            instance_labels = per_point_labels[0]
-            semantic_labels = per_point_labels[1]
-
-        point_cloud, choices = pc_util.random_sampling(
-            point_cloud, self.num_points, return_choices=True
-        )
-        instance_labels = instance_labels[choices]
-        semantic_labels = semantic_labels[choices]
+        # if self.augment and self.use_random_cuboid:
+        #     (
+        #         point_cloud,
+        #         instance_bboxes,
+        #         per_point_labels,
+        #     ) = self.random_cuboid_augmentor(
+        #         point_cloud, instance_bboxes, [instance_labels, semantic_labels]
+        #     )
+        #     instance_labels = per_point_labels[0]
+        #     semantic_labels = per_point_labels[1]
+        #
+        # point_cloud, choices = pc_util.random_sampling(
+        #     point_cloud, self.num_points, return_choices=True
+        # )
+        # instance_labels = instance_labels[choices]
+        # semantic_labels = semantic_labels[choices]
 
         sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
 
@@ -242,7 +242,7 @@ class ScannetDetectionDataset(Dataset):
                 semantic_labels == _c
             ] = self.dataset_config.nyu40id2class_semseg[_c]
 
-        pcl_color = pcl_color[choices]
+        # pcl_color = pcl_color[choices]
 
         target_bboxes_mask[0 : instance_bboxes.shape[0]] = 1
         target_bboxes[0 : instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]

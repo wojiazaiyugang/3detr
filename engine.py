@@ -177,7 +177,7 @@ def evaluate(
         outputs = model(inputs)
 
         config_dict = get_ap_config_dict(remove_empty_box=False, dataset_config=dataset_config)
-        parse_output(None, outputs["outputs"],config_dict)
+        # parse_output(None, outputs["outputs"],config_dict)
         # Compute loss
         loss_str = ""
         if criterion is not None:
