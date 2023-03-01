@@ -1,8 +1,9 @@
 #!/bin/bash
 # Copyright (c) Facebook, Inc. and its affiliates.
+# 数据集里面的数据集路径也要改，命令行里的好像不会生效，没仔细看，都改了就完事了
 
 python main.py \
---dataset_name tooth \
+--dataset_name scan_tooth \
 --max_epoch 1080 \
 --enc_type masked \
 --enc_dropout 0.3 \
@@ -15,7 +16,7 @@ python main.py \
 --loss_giou_weight 1 \
 --loss_no_object_weight 0.25 \
 --save_separate_checkpoint_every_epoch -1 \
---checkpoint_dir outputs/6 \
---batchsize_per_gpu 6 \
---dataset_root_dir /media/3TB/data/xiaoliutech/tooth_det_3detr_farthest_sample \
---meta_data_dir /media/3TB/data/xiaoliutech/tooth_det_3detr_farthest_sample
+--checkpoint_dir outputs/9 \
+--batchsize_per_gpu 8 \
+--dataset_root_dir /media/3TB/data/xiaoliutech/scan_tooth_det_3detr_farthest_sample \
+--meta_data_dir /media/3TB/data/xiaoliutech/scan_tooth_det_3detr_farthest_sample
