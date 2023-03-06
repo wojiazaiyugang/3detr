@@ -99,6 +99,7 @@ def make_args_parser():
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
     parser.add_argument("--loss_center_weight", default=5.0, type=float)
     parser.add_argument("--loss_size_weight", default=1.0, type=float)
+    parser.add_argument("--loss_axisfl_weight", default=0.5, type=float)
 
     ##### Dataset #####
     parser.add_argument(

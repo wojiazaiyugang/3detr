@@ -118,7 +118,7 @@ def train_one_epoch(
             eta_seconds = (max_iters - curr_iter) * time_delta.avg
             eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
             print(
-                f"Epoch [{curr_epoch}/{args.max_epoch}]; Iter [{curr_iter}/{max_iters}]; Loss {loss_avg.avg:0.2f}; LR {curr_lr:0.2e}; Iter time {time_delta.avg:0.2f}; ETA {eta_str}; Mem {mem_mb:0.2f}MB"
+                f"Epoch [{curr_epoch}/{args.max_epoch}]; Iter [{curr_iter}/{max_iters}]; Loss {loss_avg.avg:0.2f}; Axisfl Loss: {loss_dict['loss_axisfl']:0.2f} ;LR {curr_lr:0.2e}; Iter time {time_delta.avg:0.2f}; ETA {eta_str}; Mem {mem_mb:0.2f}MB"
             )
             logger.log_scalars(loss_dict_reduced, curr_iter, prefix="Train_details/")
 

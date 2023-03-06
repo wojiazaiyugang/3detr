@@ -20,8 +20,8 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_farthest_sample"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_farthest_sample"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/home/yujiannan/桌面/3detr"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/home/yujiannan/桌面/3detr"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -202,6 +202,7 @@ class ScannetDetectionDataset(Dataset):
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
+        axisfl = np.load(os.path.join(self.data_path, scan_name) + "_axisfl.npy")
 
         if not self.use_color:
             point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
@@ -224,6 +225,7 @@ class ScannetDetectionDataset(Dataset):
         angle_residuals = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+        target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
 
         # if self.augment and self.use_random_cuboid:
         #     (
@@ -253,9 +255,11 @@ class ScannetDetectionDataset(Dataset):
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
+        target_axisfls[0: axisfl.shape[0],:] = axisfl[:,0:3]
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
+            pass
 
             # if np.random.random() > 0.5:
             #     # Flipping along the YZ plane
@@ -268,16 +272,18 @@ class ScannetDetectionDataset(Dataset):
             #     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
 
             # Rotation along up-axis/Z-axis
-            rot_angle = (np.random.random() * np.pi / 18) - np.pi / 36  # -5 ~ +5 degree
-            rot_mat = pc_util.rotz(rot_angle)
-            point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
-            target_bboxes = self.dataset_config.rotate_aligned_boxes(
-                target_bboxes, rot_mat
-            )
+            # rot_angle = (np.random.random() * np.pi / 18) - np.pi / 36  # -5 ~ +5 degree
+            # rot_mat = pc_util.rotz(rot_angle)
+            # point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
+            # target_bboxes = self.dataset_config.rotate_aligned_boxes(
+            #     target_bboxes, rot_mat
+            # )
 
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]
         point_cloud_dims_max = point_cloud.max(axis=0)[:3]
+        # axisfls_dims_min = target_axisfls.min(axis=0)[:3]
+        # axisfls_dims_max = target_axisfls.max(axis=0)[:3]
 
         box_centers = target_bboxes.astype(np.float32)[:, 0:3]
         box_centers_normalized = shift_scale_points(
@@ -288,8 +294,19 @@ class ScannetDetectionDataset(Dataset):
             ],
             dst_range=self.center_normalizing_range,
         )
+        # target_axisfls_normalized = shift_scale_points(
+        #     target_axisfls[None, ...],
+        #     src_range=[
+        #         axisfls_dims_min[None, ...],
+        #         axisfls_dims_max[None, ...],
+        #     ],
+        #     dst_range=self.center_normalizing_range,
+        #
+        # )
         box_centers_normalized = box_centers_normalized.squeeze(0)
         box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
+        # target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
+        # target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -308,9 +325,9 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["point_clouds"] = point_cloud.astype(np.float32)
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
-        ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(
-            np.float32
-        )
+        ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
+        ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
+        # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))

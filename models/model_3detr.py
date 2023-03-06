@@ -62,7 +62,7 @@ class BoxProcessor(object):
         return cls_prob[..., :-1], objectness_prob
 
     def box_parametrization_to_corners(
-        self, box_center_unnorm, box_size_unnorm, box_angle
+            self, box_center_unnorm, box_size_unnorm, box_angle
     ):
         return self.dataset_config.box_parametrization_to_corners(
             box_center_unnorm, box_size_unnorm, box_angle
@@ -87,16 +87,16 @@ class Model3DETR(nn.Module):
     """
 
     def __init__(
-        self,
-        pre_encoder,
-        encoder,
-        decoder,
-        dataset_config,
-        encoder_dim=256,
-        decoder_dim=256,
-        position_embedding="fourier",
-        mlp_dropout=0.3,
-        num_queries=256,
+            self,
+            pre_encoder,
+            encoder,
+            decoder,
+            dataset_config,
+            encoder_dim=256,
+            decoder_dim=256,
+            position_embedding="fourier",
+            mlp_dropout=0.3,
+            num_queries=256,
     ):
         super().__init__()
         self.pre_encoder = pre_encoder
@@ -160,6 +160,7 @@ class Model3DETR(nn.Module):
             ("size_head", size_head),
             ("angle_cls_head", angle_cls_head),
             ("angle_residual_head", angle_reg_head),
+            ("axisfl_head", mlp_func(output_dim=3)),  # fl轴的输出头
         ]
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
@@ -229,8 +230,9 @@ class Model3DETR(nn.Module):
         # mlp head outputs are (num_layers x batch) x noutput x nqueries, so transpose last two dims
         cls_logits = self.mlp_heads["sem_cls_head"](box_features).transpose(1, 2)
         center_offset = (
-            self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+                self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         )
+        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2)
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
@@ -242,13 +244,14 @@ class Model3DETR(nn.Module):
         # reshape outputs to num_layers x batch x nqueries x noutput
         cls_logits = cls_logits.reshape(num_layers, batch, num_queries, -1)
         center_offset = center_offset.reshape(num_layers, batch, num_queries, -1)
+        axisfl = axisfl.reshape(num_layers, batch, num_queries, -1)
         size_normalized = size_normalized.reshape(num_layers, batch, num_queries, -1)
         angle_logits = angle_logits.reshape(num_layers, batch, num_queries, -1)
         angle_residual_normalized = angle_residual_normalized.reshape(
             num_layers, batch, num_queries, -1
         )
         angle_residual = angle_residual_normalized * (
-            np.pi / angle_residual_normalized.shape[-1]
+                np.pi / angle_residual_normalized.shape[-1]
         )
 
         outputs = []
@@ -282,6 +285,7 @@ class Model3DETR(nn.Module):
                 "sem_cls_logits": cls_logits[l],
                 "center_normalized": center_normalized.contiguous(),
                 "center_unnormalized": center_unnormalized,
+                "axisfl": axisfl[l],
                 "size_normalized": size_normalized[l],
                 "size_unnormalized": size_unnormalized,
                 "angle_logits": angle_logits[l],
@@ -378,7 +382,7 @@ def build_encoder(args):
             mlp=[args.enc_dim, 256, 256, args.enc_dim],
             normalize_xyz=True,
         )
-        
+
         masking_radius = [math.pow(x, 2) for x in [0.4, 0.8, 1.2]]
         encoder = MaskedTransformerEncoder(
             encoder_layer=encoder_layer,

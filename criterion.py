@@ -102,8 +102,10 @@ class SetCriterion(nn.Module):
             "loss_sem_cls": self.loss_sem_cls,
             "loss_angle": self.loss_angle,
             "loss_center": self.loss_center,
+            "loss_axisfl": self.loss_axisfl,
             "loss_size": self.loss_size,
             "loss_giou": self.loss_giou,
+
             # this isn't used during training and is logged for debugging.
             # thus, this loss does not have a loss_weight associated with it.
             "loss_cardinality": self.loss_cardinality,
@@ -251,6 +253,31 @@ class SetCriterion(nn.Module):
 
         return {"loss_center": center_loss}
 
+    def loss_axisfl(self, outputs, targets, assignments):
+        axisfl_dist = outputs["axisfl_dist"]
+        if targets["num_boxes_replica"] > 0:
+
+            # # Non vectorized version
+            # assign = assignments["assignments"]
+            # center_loss = torch.zeros(1, device=center_dist.device).squeeze()
+            # for b in range(center_dist.shape[0]):
+            #     if len(assign[b]) > 0:
+            #         center_loss += center_dist[b, assign[b][0], assign[b][1]].sum()
+
+            # select appropriate distances by using proposal to gt matching
+            axisfl_loss = torch.gather(
+                axisfl_dist, 2, assignments["per_prop_gt_inds"].unsqueeze(-1)
+            ).squeeze(-1)
+            # zero-out non-matched proposals
+            axisfl_loss = axisfl_loss * assignments["proposal_matched_mask"]
+            axisfl_loss = axisfl_loss.sum()
+
+            if targets["num_boxes"] > 0:
+                axisfl_loss /= targets["num_boxes"]
+        else:
+            axisfl_loss = torch.zeros(1, device=axisfl_dist.device).squeeze()
+        return {"loss_axisfl": axisfl_loss}
+
     def loss_giou(self, outputs, targets, assignments):
         gious_dist = 1 - outputs["gious"]
 
@@ -329,7 +356,11 @@ class SetCriterion(nn.Module):
         center_dist = torch.cdist(
             outputs["center_normalized"], targets["gt_box_centers_normalized"], p=1
         )
+        axisfl_dist = torch.cdist(
+            outputs["axisfl"].contiguous(), targets["gt_axisfls"].contiguous(), p=1
+        )
         outputs["center_dist"] = center_dist
+        outputs["axisfl_dist"] = axisfl_dist
         assignments = self.matcher(outputs, targets)
 
         losses = {}
@@ -390,6 +421,7 @@ def build_criterion(args, dataset_config):
         "loss_angle_cls_weight": args.loss_angle_cls_weight,
         "loss_angle_reg_weight": args.loss_angle_reg_weight,
         "loss_center_weight": args.loss_center_weight,
+        "loss_axisfl_weight": args.loss_axisfl_weight,
         "loss_size_weight": args.loss_size_weight,
     }
     criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)
