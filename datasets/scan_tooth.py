@@ -20,8 +20,8 @@ from utils.random_cuboid import RandomCuboid
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/home/yujiannan/桌面/3detr"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/home/yujiannan/桌面/3detr"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_axisfl_3detr"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_axisfl_3detr"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -294,19 +294,20 @@ class ScannetDetectionDataset(Dataset):
             ],
             dst_range=self.center_normalizing_range,
         )
-        # target_axisfls_normalized = shift_scale_points(
-        #     target_axisfls[None, ...],
-        #     src_range=[
-        #         axisfls_dims_min[None, ...],
-        #         axisfls_dims_max[None, ...],
-        #     ],
-        #     dst_range=self.center_normalizing_range,
-        #
-        # )
+        target_axisfls = target_axisfls.astype(np.float32)[:, 0:3]
+        target_axisfls_normalized = shift_scale_points(
+            target_axisfls[None, ...],
+            src_range=[
+                point_cloud_dims_min[None, ...],
+                point_cloud_dims_max[None, ...],
+            ],
+            dst_range=self.center_normalizing_range,
+
+        )
         box_centers_normalized = box_centers_normalized.squeeze(0)
         box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
-        # target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
-        # target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
+        target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
+        target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -327,7 +328,7 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
         ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
-        # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
+        ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))

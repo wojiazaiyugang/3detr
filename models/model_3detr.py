@@ -263,6 +263,11 @@ class Model3DETR(nn.Module):
             ) = self.box_processor.compute_predicted_center(
                 center_offset[l], query_xyz, point_cloud_dims
             )
+            (
+                axisfl_normalized,
+                axisfl_unnormalized,) = self.box_processor.compute_predicted_center(
+                axisfl[l], query_xyz, point_cloud_dims
+            )
             angle_continuous = self.box_processor.compute_predicted_angle(
                 angle_logits[l], angle_residual[l]
             )
@@ -285,7 +290,8 @@ class Model3DETR(nn.Module):
                 "sem_cls_logits": cls_logits[l],
                 "center_normalized": center_normalized.contiguous(),
                 "center_unnormalized": center_unnormalized,
-                "axisfl": axisfl[l],
+                "axisfl_normalized": axisfl_normalized.contiguous(),
+                "axisfl_unnormalized": axisfl_unnormalized,
                 "size_normalized": size_normalized[l],
                 "size_unnormalized": size_unnormalized,
                 "angle_logits": angle_logits[l],

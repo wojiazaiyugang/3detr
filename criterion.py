@@ -357,7 +357,7 @@ class SetCriterion(nn.Module):
             outputs["center_normalized"], targets["gt_box_centers_normalized"], p=1
         )
         axisfl_dist = torch.cdist(
-            outputs["axisfl"].contiguous(), targets["gt_axisfls"].contiguous(), p=1
+            outputs["axisfl_normalized"].contiguous(), targets["gt_axisfls_normalized"].contiguous(), p=1
         )
         outputs["center_dist"] = center_dist
         outputs["axisfl_dist"] = axisfl_dist
