@@ -232,7 +232,7 @@ class Model3DETR(nn.Module):
         center_offset = (
                 self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         )
-        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2)
+        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
@@ -265,7 +265,8 @@ class Model3DETR(nn.Module):
             )
             (
                 axisfl_normalized,
-                axisfl_unnormalized,) = self.box_processor.compute_predicted_center(
+                axisfl_unnormalized,
+            ) = self.box_processor.compute_predicted_center(
                 axisfl[l], query_xyz, point_cloud_dims
             )
             angle_continuous = self.box_processor.compute_predicted_angle(
