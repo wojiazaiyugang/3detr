@@ -101,8 +101,11 @@ class SetCriterion(nn.Module):
         self.loss_functions = {
             "loss_sem_cls": self.loss_sem_cls,
             "loss_angle": self.loss_angle,
+            "loss_axisfl_angle_x": self.loss_axisfl_angle_x,
+            "loss_axisfl_angle_y": self.loss_axisfl_angle_y,
+            "loss_axisfl_angle_z": self.loss_axisfl_angle_z,
             "loss_center": self.loss_center,
-            "loss_axisfl": self.loss_axisfl,
+            # "loss_axisfl": self.loss_axisfl,
             "loss_size": self.loss_size,
             "loss_giou": self.loss_giou,
 
@@ -158,6 +161,39 @@ class SetCriterion(nn.Module):
         )
 
         return {"loss_sem_cls": loss}
+
+    def loss_axisfl_angle_x(self, outputs, targets, assignments):
+        axisfl_angle_x = outputs["axisfl_angle_x"]
+        gt_axisfl_angle_x = targets["gt_axisfl_angle_x_label"]
+        gt_axisfl_angle_x = torch.gather(gt_axisfl_angle_x, 1, assignments["per_prop_gt_inds"])
+        axisfl_angle_x_loss = huber_loss(axisfl_angle_x - gt_axisfl_angle_x, delta=1.0)
+        axisfl_angle_x_loss = (
+                axisfl_angle_x_loss * assignments["proposal_matched_mask"]
+        ).sum()
+        axisfl_angle_x_loss /= targets["num_boxes"]
+        return {"loss_axisfl_angle_x": axisfl_angle_x_loss}
+
+    def loss_axisfl_angle_y(self, outputs, targets, assignments):
+        axisfl_angle_y = outputs["axisfl_angle_y"]
+        gt_axisfl_angle_y = targets["gt_axisfl_angle_y_label"]
+        gt_axisfl_angle_y = torch.gather(gt_axisfl_angle_y, 1, assignments["per_prop_gt_inds"])
+        axisfl_angle_y_loss = huber_loss(axisfl_angle_y - gt_axisfl_angle_y, delta=1.0)
+        axisfl_angle_y_loss = (
+                axisfl_angle_y_loss * assignments["proposal_matched_mask"]
+        ).sum()
+        axisfl_angle_y_loss /= targets["num_boxes"]
+        return {"loss_axisfl_angle_y": axisfl_angle_y_loss}
+
+    def loss_axisfl_angle_z(self, outputs, targets, assignments):
+        axisfl_angle_z = outputs["axisfl_angle_z"]
+        gt_axisfl_angle_z = targets["gt_axisfl_angle_z_label"]
+        gt_axisfl_angle_z = torch.gather(gt_axisfl_angle_z, 1, assignments["per_prop_gt_inds"])
+        axisfl_angle_z_loss = huber_loss(axisfl_angle_z - gt_axisfl_angle_z, delta=1.0)
+        axisfl_angle_z_loss = (
+                axisfl_angle_z_loss * assignments["proposal_matched_mask"]
+        ).sum()
+        axisfl_angle_z_loss /= targets["num_boxes"]
+        return {"loss_axisfl_angle_z": axisfl_angle_z_loss}
 
     def loss_angle(self, outputs, targets, assignments):
         angle_logits = outputs["angle_logits"]
@@ -356,11 +392,11 @@ class SetCriterion(nn.Module):
         center_dist = torch.cdist(
             outputs["center_normalized"], targets["gt_box_centers_normalized"], p=1
         )
-        axisfl_dist = torch.cdist(
-            outputs["axisfl_normalized"].contiguous(), targets["gt_axisfls_normalized"].contiguous(), p=1
-        )
+        # axisfl_dist = torch.cdist(
+        #     outputs["axisfl_normalized"].contiguous(), targets["gt_axisfls_normalized"].contiguous(), p=1
+        # )
         outputs["center_dist"] = center_dist
-        outputs["axisfl_dist"] = axisfl_dist
+        # outputs["axisfl_dist"] = axisfl_dist
         assignments = self.matcher(outputs, targets)
 
         losses = {}
@@ -420,8 +456,11 @@ def build_criterion(args, dataset_config):
         "loss_no_object_weight": args.loss_no_object_weight,
         "loss_angle_cls_weight": args.loss_angle_cls_weight,
         "loss_angle_reg_weight": args.loss_angle_reg_weight,
+        "loss_axisfl_angle_x_weight": args.loss_axisfl_angle_x_weight,
+        "loss_axisfl_angle_y_weight": args.loss_axisfl_angle_y_weight,
+        "loss_axisfl_angle_z_weight": args.loss_axisfl_angle_z_weight,
         "loss_center_weight": args.loss_center_weight,
-        "loss_axisfl_weight": args.loss_axisfl_weight,
+        # "loss_axisfl_weight": args.loss_axisfl_weight,
         "loss_size_weight": args.loss_size_weight,
     }
     criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)

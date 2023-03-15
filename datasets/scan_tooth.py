@@ -8,6 +8,7 @@ where (cx,cy,cz) is the center point of the box, dx is the x-axis length of the 
 """
 import os
 import sys
+import pickle
 
 import numpy as np
 import torch
@@ -17,11 +18,12 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
+from utils import angle_between
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_axisfl_3detr"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_axisfl_3detr"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -57,7 +59,8 @@ class ScannetDatasetConfig(object):
             self.type2class_semseg[t]: t for t in self.type2class_semseg
         }
         self.nyu40ids_semseg = np.array(
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,32]
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+             29, 30, 31, 32]
         )
         self.nyu40id2class_semseg = {
             nyu40id: i for i, nyu40id in enumerate(list(self.nyu40ids_semseg))
@@ -202,7 +205,12 @@ class ScannetDetectionDataset(Dataset):
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
-        axisfl = np.load(os.path.join(self.data_path, scan_name) + "_axisfl.npy")
+        with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
+            kps = pickle.load(f)
+        axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
+        axisfl_angle_x = np.array([angle_between(a, (1, 0, 0)) for a in axisfl])
+        axisfl_angle_y = np.array([angle_between(a, (0, 1, 0)) for a in axisfl])
+        axisfl_angle_z = np.array([angle_between(a, (0, 0, 1)) for a in axisfl])
 
         if not self.use_color:
             point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
@@ -225,7 +233,10 @@ class ScannetDetectionDataset(Dataset):
         angle_residuals = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
-        target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+        # target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+        target_axisfl_angle_xs = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+        target_axisfl_angle_ys = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+        target_axisfl_angle_zs = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
 
         # if self.augment and self.use_random_cuboid:
         #     (
@@ -255,7 +266,10 @@ class ScannetDetectionDataset(Dataset):
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
-        target_axisfls[0: axisfl.shape[0],:] = axisfl[:,0:3]
+        # target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
+        target_axisfl_angle_xs[0: axisfl_angle_x.shape[0]] = axisfl_angle_x
+        target_axisfl_angle_ys[0: axisfl_angle_y.shape[0]] = axisfl_angle_y
+        target_axisfl_angle_zs[0: axisfl_angle_z.shape[0]] = axisfl_angle_z
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
@@ -294,20 +308,20 @@ class ScannetDetectionDataset(Dataset):
             ],
             dst_range=self.center_normalizing_range,
         )
-        target_axisfls = target_axisfls.astype(np.float32)[:, 0:3]
-        target_axisfls_normalized = shift_scale_points(
-            target_axisfls[None, ...],
-            src_range=[
-                point_cloud_dims_min[None, ...],
-                point_cloud_dims_max[None, ...],
-            ],
-            dst_range=self.center_normalizing_range,
-
-        )
+        # target_axisfls = target_axisfls.astype(np.float32)[:, 0:3]
+        # target_axisfls_normalized = shift_scale_points(
+        #     target_axisfls[None, ...],
+        #     src_range=[
+        #         point_cloud_dims_min[None, ...],
+        #         point_cloud_dims_max[None, ...],
+        #     ],
+        #     dst_range=self.center_normalizing_range,
+        #
+        # )
         box_centers_normalized = box_centers_normalized.squeeze(0)
         box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
-        target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
-        target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
+        # target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
+        # target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -327,10 +341,13 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
-        ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
-        ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
+        # ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
+        # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
+        ret_dict["gt_axisfl_angle_x_label"] = target_axisfl_angle_xs.astype(np.float32)
+        ret_dict["gt_axisfl_angle_y_label"] = target_axisfl_angle_ys.astype(np.float32)
+        ret_dict["gt_axisfl_angle_z_label"] = target_axisfl_angle_zs.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         target_bboxes_semcls[0: instance_bboxes.shape[0]] = [
             self.dataset_config.nyu40id2class[int(x)]
