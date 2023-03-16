@@ -153,9 +153,6 @@ class Model3DETR(nn.Module):
         size_head = mlp_func(output_dim=3)
         angle_cls_head = mlp_func(output_dim=dataset_config.num_angle_bin)
         angle_reg_head = mlp_func(output_dim=dataset_config.num_angle_bin)
-        axisfl_angle_x_head = mlp_func(output_dim=1)
-        axisfl_angle_y_head = mlp_func(output_dim=1)
-        axisfl_angle_z_head = mlp_func(output_dim=1)
 
         mlp_heads = [
             ("sem_cls_head", semcls_head),
@@ -164,6 +161,8 @@ class Model3DETR(nn.Module):
             ("angle_cls_head", angle_cls_head),
             ("angle_residual_head", angle_reg_head),
             ("axisfl_head", mlp_func(output_dim=3)),  # fl轴的输出头
+            ("axismd_head", mlp_func(output_dim=3)),  # fmd轴的输出头
+            ("axisie_head", mlp_func(output_dim=3)),  # ie轴的输出头
         ]
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
@@ -236,6 +235,8 @@ class Model3DETR(nn.Module):
                 self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         )
         axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+        axismd = self.mlp_heads["axismd_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+        axisie = self.mlp_heads["axisie_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
@@ -248,6 +249,8 @@ class Model3DETR(nn.Module):
         cls_logits = cls_logits.reshape(num_layers, batch, num_queries, -1)
         center_offset = center_offset.reshape(num_layers, batch, num_queries, -1)
         axisfl = axisfl.reshape(num_layers, batch, num_queries, -1)
+        axismd = axismd.reshape(num_layers, batch, num_queries, -1)
+        axisie = axisie.reshape(num_layers, batch, num_queries, -1)
         size_normalized = size_normalized.reshape(num_layers, batch, num_queries, -1)
         angle_logits = angle_logits.reshape(num_layers, batch, num_queries, -1)
         angle_residual_normalized = angle_residual_normalized.reshape(
@@ -266,12 +269,6 @@ class Model3DETR(nn.Module):
             ) = self.box_processor.compute_predicted_center(
                 center_offset[l], query_xyz, point_cloud_dims
             )
-            # (
-            #     axisfl_normalized,
-            #     axisfl_unnormalized,
-            # ) = self.box_processor.compute_predicted_center(
-            #     axisfl[l], query_xyz, point_cloud_dims
-            # )
             angle_continuous = self.box_processor.compute_predicted_angle(
                 angle_logits[l], angle_residual[l]
             )
@@ -296,6 +293,8 @@ class Model3DETR(nn.Module):
                 "center_unnormalized": center_unnormalized,
                 # "axisfl_normalized": axisfl_normalized.contiguous(),
                 "axisfl": axisfl[l],
+                "axismd": axismd[l],
+                "axisie": axisie[l],
                 "size_normalized": size_normalized[l],
                 "size_unnormalized": size_unnormalized,
                 "angle_logits": angle_logits[l],
