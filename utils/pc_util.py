@@ -16,6 +16,7 @@ from plyfile import PlyData, PlyElement
 # Mesh IO
 import trimesh
 
+
 # ----------------------------------------
 # Point Cloud Sampling
 # ----------------------------------------
@@ -61,8 +62,8 @@ def shift_scale_points(pred_xyz, src_range, dst_range=None):
     src_diff = src_range[1][:, None, :] - src_range[0][:, None, :]
     dst_diff = dst_range[1][:, None, :] - dst_range[0][:, None, :]
     prop_xyz = (
-        ((pred_xyz - src_range[0][:, None, :]) * dst_diff) / src_diff
-    ) + dst_range[0][:, None, :]
+                       ((pred_xyz - src_range[0][:, None, :]) * dst_diff) / src_diff
+               ) + dst_range[0][:, None, :]
     return prop_xyz
 
 
@@ -127,6 +128,13 @@ def rotz(t):
     c = np.cos(t)
     s = np.sin(t)
     return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def rotx(t):
+    """Rotation about the x-axis."""
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
 
 
 def point_cloud_to_bbox(points):

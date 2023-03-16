@@ -284,12 +284,20 @@ class ScannetDetectionDataset(Dataset):
             #     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
 
             # Rotation along up-axis/Z-axis
-            # rot_angle = (np.random.random() * np.pi / 18) - np.pi / 36  # -5 ~ +5 degree
-            # rot_mat = pc_util.rotz(rot_angle)
-            # point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
-            # target_bboxes = self.dataset_config.rotate_aligned_boxes(
-            #     target_bboxes, rot_mat
-            # )
+            angle = 12  # -15 ~ +15 degree
+            rot_angle_x = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
+            rot_mat_x = pc_util.rotx(rot_angle_x)
+            rot_angle_y = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
+            rot_mat_y = pc_util.roty(rot_angle_y)
+            rot_angle_z = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
+            rot_mat_z = pc_util.rotz(rot_angle_z)
+            rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
+
+            point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
+            target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
+            target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
+            target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
+            target_axisies = np.dot(target_axisies, np.transpose(rot_mat))
 
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]

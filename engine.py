@@ -122,7 +122,17 @@ def train_one_epoch(
                     loss_dict[extra_loss_name] = 0
 
             print(
-                f"Epoch [{curr_epoch}/{args.max_epoch}]; Iter [{curr_iter}/{max_iters}]; Loss {loss_avg.avg:0.2f}; Center Loss {loss_dict['loss_center']:0.2f}; Axisfl Loss: {loss_dict['loss_axisfl']:0.2f}; LR {curr_lr:0.2e}; Iter time {time_delta.avg:0.2f}; ETA {eta_str}; Mem {mem_mb:0.2f}MB"
+                f"Epoch [{curr_epoch}/{args.max_epoch}]; "
+                f"Iter [{curr_iter}/{max_iters}]; "
+                f"Loss {loss_avg.avg:0.2f}; "
+                f"Center Loss {loss_dict['loss_center']:0.2f}; "
+                f"Axisfl Loss: {loss_dict['loss_axisfl']:0.2f}; "
+                f"Axismd Loss: {loss_dict['loss_axismd']:0.2f}; "
+                f"Axisie Loss: {loss_dict['loss_axisie']:0.2f}; "
+                f"LR {curr_lr:0.2e}; "
+                f"Iter time {time_delta.avg:0.2f}; "
+                f"ETA {eta_str}; "
+                f"Mem {mem_mb:0.2f}MB"
             )
             logger.log_scalars(loss_dict_reduced, curr_iter, prefix="Train_details/")
 
