@@ -235,7 +235,7 @@ class Model3DETR(nn.Module):
         center_offset = (
                 self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         )
-        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2)
+        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
