@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def angle_between(v1, v2, angle: bool = False) -> float:
@@ -14,3 +15,18 @@ def angle_between(v1, v2, angle: bool = False) -> float:
     v2_u = unit_vector(v2)
     scale = 180 / np.pi if angle else 1
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0)) * scale
+
+def torch_angle_between(v1, v2, angle: bool = False) -> float:
+    """
+    计算两个向量之间的夹角
+    :param v1:
+    :param v2:
+    :param angle: 是否返回角度，否则返回弧度
+    :return:
+    """
+    unit_vector = lambda v: v / torch.linalg.norm(v)
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    scale = 180 / torch.pi if angle else 1
+    return torch.arccos(torch.clip(torch.dot(v1_u, v2_u), -1.0, 1.0)) * scale
+

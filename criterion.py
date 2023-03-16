@@ -1,12 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 import torch.nn.functional as F
+from scipy.optimize import linear_sum_assignment
+
 from utils.box_util import generalized_box3d_iou
 from utils.dist import all_reduce_average
 from utils.misc import huber_loss
-from scipy.optimize import linear_sum_assignment
 
 
 class Matcher(nn.Module):
@@ -50,10 +51,10 @@ class Matcher(nn.Module):
         giou_mat = -outputs["gious"].detach()
 
         final_cost = (
-            self.cost_class * class_mat
-            + self.cost_objectness * objectness_mat
-            + self.cost_center * center_mat
-            + self.cost_giou * giou_mat
+                self.cost_class * class_mat
+                + self.cost_objectness * objectness_mat
+                + self.cost_center * center_mat
+                + self.cost_giou * giou_mat
         )
 
         final_cost = final_cost.detach().cpu().numpy()
@@ -101,12 +102,9 @@ class SetCriterion(nn.Module):
         self.loss_functions = {
             "loss_sem_cls": self.loss_sem_cls,
             "loss_angle": self.loss_angle,
-            "loss_axisfl_angle_x": self.loss_axisfl_angle_x,
-            "loss_axisfl_angle_y": self.loss_axisfl_angle_y,
-            "loss_axisfl_angle_z": self.loss_axisfl_angle_z,
             "loss_center": self.loss_center,
-            # "loss_axisfl": self.loss_axisfl,
             "loss_size": self.loss_size,
+            "loss_axisfl": self.loss_axisfl,
             "loss_giou": self.loss_giou,
 
             # this isn't used during training and is logged for debugging.
@@ -151,7 +149,7 @@ class SetCriterion(nn.Module):
             targets["gt_box_sem_cls_label"], 1, assignments["per_prop_gt_inds"]
         )
         gt_box_label[assignments["proposal_matched_mask"].int() == 0] = (
-            pred_logits.shape[-1] - 1
+                pred_logits.shape[-1] - 1
         )
         loss = F.cross_entropy(
             pred_logits.transpose(2, 1),
@@ -164,9 +162,10 @@ class SetCriterion(nn.Module):
 
     def loss_axisfl_angle_x(self, outputs, targets, assignments):
         axisfl_angle_x = outputs["axisfl_angle_x"]
-        gt_axisfl_angle_x = targets["gt_axisfl_angle_x_label"]
+
+        gt_axisfl_angle_x = targets["gt_axisfl_angle_x_label"]  # 角度
         gt_axisfl_angle_x = torch.gather(gt_axisfl_angle_x, 1, assignments["per_prop_gt_inds"])
-        axisfl_angle_x_loss = huber_loss(axisfl_angle_x - gt_axisfl_angle_x, delta=1.0)
+        axisfl_angle_x_loss = huber_loss(axisfl_angle_x.squeeze(-1) - gt_axisfl_angle_x, delta=1.0)
         axisfl_angle_x_loss = (
                 axisfl_angle_x_loss * assignments["proposal_matched_mask"]
         ).sum()
@@ -177,7 +176,7 @@ class SetCriterion(nn.Module):
         axisfl_angle_y = outputs["axisfl_angle_y"]
         gt_axisfl_angle_y = targets["gt_axisfl_angle_y_label"]
         gt_axisfl_angle_y = torch.gather(gt_axisfl_angle_y, 1, assignments["per_prop_gt_inds"])
-        axisfl_angle_y_loss = huber_loss(axisfl_angle_y - gt_axisfl_angle_y, delta=1.0)
+        axisfl_angle_y_loss = huber_loss(axisfl_angle_y.squeeze(-1) - gt_axisfl_angle_y, delta=1.0)
         axisfl_angle_y_loss = (
                 axisfl_angle_y_loss * assignments["proposal_matched_mask"]
         ).sum()
@@ -188,7 +187,7 @@ class SetCriterion(nn.Module):
         axisfl_angle_z = outputs["axisfl_angle_z"]
         gt_axisfl_angle_z = targets["gt_axisfl_angle_z_label"]
         gt_axisfl_angle_z = torch.gather(gt_axisfl_angle_z, 1, assignments["per_prop_gt_inds"])
-        axisfl_angle_z_loss = huber_loss(axisfl_angle_z - gt_axisfl_angle_z, delta=1.0)
+        axisfl_angle_z_loss = huber_loss(axisfl_angle_z.squeeze(-1) - gt_axisfl_angle_z, delta=1.0)
         axisfl_angle_z_loss = (
                 axisfl_angle_z_loss * assignments["proposal_matched_mask"]
         ).sum()
@@ -203,7 +202,7 @@ class SetCriterion(nn.Module):
             gt_angle_label = targets["gt_angle_class_label"]
             gt_angle_residual = targets["gt_angle_residual_label"]
             gt_angle_residual_normalized = gt_angle_residual / (
-                np.pi / self.dataset_config.num_angle_bin
+                    np.pi / self.dataset_config.num_angle_bin
             )
 
             # # Non vectorized version
@@ -235,7 +234,7 @@ class SetCriterion(nn.Module):
                 angle_logits.transpose(2, 1), gt_angle_label, reduction="none"
             )
             angle_cls_loss = (
-                angle_cls_loss * assignments["proposal_matched_mask"]
+                    angle_cls_loss * assignments["proposal_matched_mask"]
             ).sum()
 
             gt_angle_residual_normalized = torch.gather(
@@ -253,7 +252,7 @@ class SetCriterion(nn.Module):
                 angle_residual_for_gt_class - gt_angle_residual_normalized, delta=1.0
             )
             angle_reg_loss = (
-                angle_reg_loss * assignments["proposal_matched_mask"]
+                    angle_reg_loss * assignments["proposal_matched_mask"]
             ).sum()
 
             angle_cls_loss /= targets["num_boxes"]
@@ -290,28 +289,29 @@ class SetCriterion(nn.Module):
         return {"loss_center": center_loss}
 
     def loss_axisfl(self, outputs, targets, assignments):
-        axisfl_dist = outputs["axisfl_dist"]
+        axisfl = outputs["axisfl"]
+        gt_axisfl = targets["gt_axisfls"]
         if targets["num_boxes_replica"] > 0:
+            gt_axisfl = torch.stack(
+                [
+                    torch.gather(
+                        gt_axisfl[:, :, x], 1, assignments["per_prop_gt_inds"]
+                    )
+                    for x in range(gt_axisfl.shape[-1])
+                ],
+                dim=-1,
+            )
+            # axisfl_loss = F.l1_loss(axisfl, gt_axisfl, reduction="none").sum(dim=-1)
+            criterion = nn.CosineSimilarity(dim=2)
+            axisfl_loss = 1 - criterion(axisfl, gt_axisfl)
 
-            # # Non vectorized version
-            # assign = assignments["assignments"]
-            # center_loss = torch.zeros(1, device=center_dist.device).squeeze()
-            # for b in range(center_dist.shape[0]):
-            #     if len(assign[b]) > 0:
-            #         center_loss += center_dist[b, assign[b][0], assign[b][1]].sum()
-
-            # select appropriate distances by using proposal to gt matching
-            axisfl_loss = torch.gather(
-                axisfl_dist, 2, assignments["per_prop_gt_inds"].unsqueeze(-1)
-            ).squeeze(-1)
             # zero-out non-matched proposals
-            axisfl_loss = axisfl_loss * assignments["proposal_matched_mask"]
+            axisfl_loss *= assignments["proposal_matched_mask"]
             axisfl_loss = axisfl_loss.sum()
 
-            if targets["num_boxes"] > 0:
-                axisfl_loss /= targets["num_boxes"]
+            axisfl_loss /= targets["num_boxes"]
         else:
-            axisfl_loss = torch.zeros(1, device=axisfl_dist.device).squeeze()
+            axisfl_loss = torch.zeros(1, device=axisfl.device).squeeze()
         return {"loss_axisfl": axisfl_loss}
 
     def loss_giou(self, outputs, targets, assignments):
@@ -404,8 +404,8 @@ class SetCriterion(nn.Module):
         for k in self.loss_functions:
             loss_wt_key = k + "_weight"
             if (
-                loss_wt_key in self.loss_weight_dict
-                and self.loss_weight_dict[loss_wt_key] > 0
+                    loss_wt_key in self.loss_weight_dict
+                    and self.loss_weight_dict[loss_wt_key] > 0
             ) or loss_wt_key not in self.loss_weight_dict:
                 # only compute losses with loss_wt > 0
                 # certain losses like cardinality are only logged and have no loss weight
@@ -456,11 +456,8 @@ def build_criterion(args, dataset_config):
         "loss_no_object_weight": args.loss_no_object_weight,
         "loss_angle_cls_weight": args.loss_angle_cls_weight,
         "loss_angle_reg_weight": args.loss_angle_reg_weight,
-        "loss_axisfl_angle_x_weight": args.loss_axisfl_angle_x_weight,
-        "loss_axisfl_angle_y_weight": args.loss_axisfl_angle_y_weight,
-        "loss_axisfl_angle_z_weight": args.loss_axisfl_angle_z_weight,
         "loss_center_weight": args.loss_center_weight,
-        # "loss_axisfl_weight": args.loss_axisfl_weight,
+        "loss_axisfl_weight": args.loss_axisfl_weight,
         "loss_size_weight": args.loss_size_weight,
     }
     criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)

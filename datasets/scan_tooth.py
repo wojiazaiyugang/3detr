@@ -208,9 +208,6 @@ class ScannetDetectionDataset(Dataset):
         with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
             kps = pickle.load(f)
         axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
-        axisfl_angle_x = np.array([angle_between(a, (1, 0, 0)) for a in axisfl])
-        axisfl_angle_y = np.array([angle_between(a, (0, 1, 0)) for a in axisfl])
-        axisfl_angle_z = np.array([angle_between(a, (0, 0, 1)) for a in axisfl])
 
         if not self.use_color:
             point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
@@ -233,10 +230,7 @@ class ScannetDetectionDataset(Dataset):
         angle_residuals = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
-        # target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
-        target_axisfl_angle_xs = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
-        target_axisfl_angle_ys = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
-        target_axisfl_angle_zs = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
+        target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
 
         # if self.augment and self.use_random_cuboid:
         #     (
@@ -266,10 +260,7 @@ class ScannetDetectionDataset(Dataset):
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
-        # target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
-        target_axisfl_angle_xs[0: axisfl_angle_x.shape[0]] = axisfl_angle_x
-        target_axisfl_angle_ys[0: axisfl_angle_y.shape[0]] = axisfl_angle_y
-        target_axisfl_angle_zs[0: axisfl_angle_z.shape[0]] = axisfl_angle_z
+        target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
@@ -341,13 +332,10 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
-        # ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
+        ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
         # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
-        ret_dict["gt_axisfl_angle_x_label"] = target_axisfl_angle_xs.astype(np.float32)
-        ret_dict["gt_axisfl_angle_y_label"] = target_axisfl_angle_ys.astype(np.float32)
-        ret_dict["gt_axisfl_angle_z_label"] = target_axisfl_angle_zs.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
         target_bboxes_semcls[0: instance_bboxes.shape[0]] = [
             self.dataset_config.nyu40id2class[int(x)]
