@@ -405,7 +405,7 @@ def main(local_rank, args):
             os.makedirs(args.checkpoint_dir, exist_ok=True)
         optimizer = build_optimizer(args, model_no_ddp)
 
-        # resume_from_pretrain("/home/yujiannan/Projects/3detr/checkpoints/scannet_masked_ep1080.pth", model_no_ddp, optimizer)
+        resume_from_pretrain("/home/yujiannan/Projects/3detr/checkpoints/scannet_masked_ep1080.pth", model_no_ddp, optimizer)
         loaded_epoch, best_val_metrics = resume_if_possible(
             args.checkpoint_dir, model_no_ddp, optimizer
         )
