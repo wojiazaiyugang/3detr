@@ -150,6 +150,7 @@ class ScannetDetectionDataset(Dataset):
 
         self.dataset_config = dataset_config
         assert split_set in ["train", "val"]
+        self.split_set = split_set
         if root_dir is None:
             root_dir = DATASET_ROOT_DIR
 
@@ -160,7 +161,7 @@ class ScannetDetectionDataset(Dataset):
         all_scan_names = list(
             set(
                 [
-                    os.path.basename(x)[0:12]
+                    os.path.basename(x)[0:13]
                     for x in os.listdir(self.data_path)
                     if x.startswith("scene")
                 ]
@@ -197,6 +198,8 @@ class ScannetDetectionDataset(Dataset):
 
     def __getitem__(self, idx):
         scan_name = self.scan_names[idx]
+        if self.split_set == "val":
+            print(scan_name)
         mesh_vertices = np.load(os.path.join(self.data_path, scan_name) + "_vert.npy")
         instance_labels = np.load(
             os.path.join(self.data_path, scan_name) + "_ins_label.npy"
