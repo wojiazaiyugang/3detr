@@ -9,6 +9,8 @@ from utils.box_util import generalized_box3d_iou
 from utils.dist import all_reduce_average
 from utils.misc import huber_loss
 
+from config import use_axis_head
+
 
 class Matcher(nn.Module):
     def __init__(self, cost_class, cost_objectness, cost_giou, cost_center):
@@ -104,15 +106,19 @@ class SetCriterion(nn.Module):
             "loss_angle": self.loss_angle,
             "loss_center": self.loss_center,
             "loss_size": self.loss_size,
-            "loss_axisfl": self.loss_axisfl,
-            "loss_axismd": self.loss_axismd,
-            "loss_axisie": self.loss_axisie,
             "loss_giou": self.loss_giou,
 
             # this isn't used during training and is logged for debugging.
             # thus, this loss does not have a loss_weight associated with it.
             "loss_cardinality": self.loss_cardinality,
         }
+
+        if use_axis_head:
+            self.loss_functions.update({
+                "loss_axisfl": self.loss_axisfl,
+                "loss_axismd": self.loss_axismd,
+                "loss_axisie": self.loss_axisie,
+            })
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, assignments):
@@ -468,10 +474,14 @@ def build_criterion(args, dataset_config):
         "loss_angle_cls_weight": args.loss_angle_cls_weight,
         "loss_angle_reg_weight": args.loss_angle_reg_weight,
         "loss_center_weight": args.loss_center_weight,
-        "loss_axisfl_weight": args.loss_axisfl_weight,
-        "loss_axismd_weight": args.loss_axismd_weight,
-        "loss_axisie_weight": args.loss_axisie_weight,
         "loss_size_weight": args.loss_size_weight,
     }
+
+    if use_axis_head:
+        loss_weight_dict.update({
+            "loss_axisfl_weight": args.loss_axisfl_weight,
+            "loss_axismd_weight": args.loss_axismd_weight,
+            "loss_axisie_weight": args.loss_axisie_weight,
+        })
     criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)
     return criterion

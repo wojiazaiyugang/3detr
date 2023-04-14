@@ -1,0 +1,1 @@
+use_axis_head = False # 是否使用自定义的头

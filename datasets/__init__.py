@@ -1,8 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from .scannet import ScannetDetectionDataset, ScannetDatasetConfig
 from .sunrgbd import SunrgbdDetectionDataset, SunrgbdDatasetConfig
-from .tooth import ScannetDatasetConfig as ToothScannetDatasetConfig, \
+from .cbct_tooth_semantic import ScannetDatasetConfig as ToothScannetDatasetConfig, \
     ScannetDetectionDataset as ToothScannetDetectionDataset
+from .cbct_tooth_instance import ScannetDatasetConfig as CBCTToothInstanceDatasetConfig, \
+    ScannetDetectionDataset as CBCTToothInstanceDetectionDataset
 from .scan_tooth import ScannetDatasetConfig as ScanToothScannetDatasetConfig, \
     ScannetDetectionDataset as ScanToothScannetDetectionDataset
 
@@ -10,7 +12,8 @@ DATASET_FUNCTIONS = {
     "scannet": [ScannetDetectionDataset, ScannetDatasetConfig],
     "sunrgbd": [SunrgbdDetectionDataset, SunrgbdDatasetConfig],
     "tooth": [ToothScannetDetectionDataset, ToothScannetDatasetConfig],
-    "scan_tooth": [ScanToothScannetDetectionDataset, ScanToothScannetDatasetConfig]
+    "scan_tooth": [ScanToothScannetDetectionDataset, ScanToothScannetDatasetConfig],
+    "cbct_tooth_instance": [CBCTToothInstanceDetectionDataset, CBCTToothInstanceDatasetConfig]
 }
 
 
