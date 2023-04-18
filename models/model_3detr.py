@@ -240,9 +240,10 @@ class Model3DETR(nn.Module):
         center_offset = (
                 self.mlp_heads["center_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         )
-        axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
-        axismd = self.mlp_heads["axismd_head"](box_features).sigmoid().transpose(1, 2) - 0.5
-        axisie = self.mlp_heads["axisie_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+        if use_axis_head:
+            axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+            axismd = self.mlp_heads["axismd_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+            axisie = self.mlp_heads["axisie_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
@@ -254,9 +255,10 @@ class Model3DETR(nn.Module):
         # reshape outputs to num_layers x batch x nqueries x noutput
         cls_logits = cls_logits.reshape(num_layers, batch, num_queries, -1)
         center_offset = center_offset.reshape(num_layers, batch, num_queries, -1)
-        axisfl = axisfl.reshape(num_layers, batch, num_queries, -1)
-        axismd = axismd.reshape(num_layers, batch, num_queries, -1)
-        axisie = axisie.reshape(num_layers, batch, num_queries, -1)
+        if use_axis_head:
+            axisfl = axisfl.reshape(num_layers, batch, num_queries, -1)
+            axismd = axismd.reshape(num_layers, batch, num_queries, -1)
+            axisie = axisie.reshape(num_layers, batch, num_queries, -1)
         size_normalized = size_normalized.reshape(num_layers, batch, num_queries, -1)
         angle_logits = angle_logits.reshape(num_layers, batch, num_queries, -1)
         angle_residual_normalized = angle_residual_normalized.reshape(
@@ -298,9 +300,7 @@ class Model3DETR(nn.Module):
                 "center_normalized": center_normalized.contiguous(),
                 "center_unnormalized": center_unnormalized,
                 # "axisfl_normalized": axisfl_normalized.contiguous(),
-                "axisfl": axisfl[l],
-                "axismd": axismd[l],
-                "axisie": axisie[l],
+
                 "size_normalized": size_normalized[l],
                 "size_unnormalized": size_unnormalized,
                 "angle_logits": angle_logits[l],
@@ -311,6 +311,12 @@ class Model3DETR(nn.Module):
                 "sem_cls_prob": semcls_prob,
                 "box_corners": box_corners,
             }
+            if use_axis_head:
+                box_prediction.update({
+                    "axisfl": axisfl[l],
+                    "axismd": axismd[l],
+                    "axisie": axisie[l],
+                })
             outputs.append(box_prediction)
 
         # intermediate decoder layer outputs are only used during training
