@@ -14,6 +14,7 @@ from models.position_embedding import PositionEmbeddingCoordsSine
 from models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
                                 TransformerDecoderLayer, TransformerEncoder,
                                 TransformerEncoderLayer)
+from config import use_axis_head
 
 
 class BoxProcessor(object):
@@ -160,10 +161,15 @@ class Model3DETR(nn.Module):
             ("size_head", size_head),
             ("angle_cls_head", angle_cls_head),
             ("angle_residual_head", angle_reg_head),
-            ("axisfl_head", mlp_func(output_dim=3)),  # fl轴的输出头
-            ("axismd_head", mlp_func(output_dim=3)),  # fmd轴的输出头
-            ("axisie_head", mlp_func(output_dim=3)),  # ie轴的输出头
         ]
+
+        if use_axis_head:
+            mlp_heads = mlp_heads + [
+                ("axisfl_head", mlp_func(output_dim=3)),  # fl轴的输出头
+                ("axismd_head", mlp_func(output_dim=3)),  # fmd轴的输出头
+                ("axisie_head", mlp_func(output_dim=3)),  # ie轴的输出头
+            ]
+
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
     def get_query_embeddings(self, encoder_xyz, point_cloud_dims):
