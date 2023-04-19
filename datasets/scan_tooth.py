@@ -302,19 +302,68 @@ class ScannetDetectionDataset(Dataset):
 
             # import open3d as o3d
             # from copy import deepcopy
+            # from typing import List
             #
+            # def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
+            #     """
+            #     bbox转line_set
+            #     :return:
+            #     """
+            #     line_sets = []
+            #     for bbox in bboxes:
+            #         center = bbox[0:3]
+            #         size = bbox[3:6]
+            #         # 获取bbox的8个顶点
+            #         points = []
+            #         point1 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
+            #         point2 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
+            #         point3 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
+            #         point4 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
+            #         point5 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
+            #         point6 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
+            #         point7 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
+            #         point8 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
+            #         points = [point1, point2, point3, point4, point5, point6, point7, point8]
             #
+            #         lines = (
+            #             (0, 1), (1, 2), (2, 3), (3, 0),  # 四个面的线索引
+            #             (4, 5), (5, 6), (6, 7), (7, 4),  # 四个面的线索引
+            #             (0, 4), (1, 5), (2, 6), (3, 7)  # 四个面的线索引
+            #         )
+            #         line_set = o3d.geometry.LineSet(
+            #             points=o3d.utility.Vector3dVector(points),
+            #             lines=o3d.utility.Vector2iVector(lines),
+            #         )
+            #         colors = [(0, 1, 0) for _ in range(len(lines))]
+            #         line_set.colors = o3d.utility.Vector3dVector(colors)
+            #         line_sets.append(line_set)
+            #     return line_sets
+
+
             # old_pc = o3d.geometry.PointCloud()
             # old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-            # red, blue = np.array([1, 0, 0]), np.array([0, 0, 1])
+            # red = np.array([0.93, 0.93, 0.93])
             # old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+            # line_sets = to_line_set(target_bboxes)
+            # o3d.visualization.draw_geometries([old_pc] + line_sets)
+
             point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
+            target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
+            # from monai.apps.detection.transforms.box_ops import apply_affine_to_boxes
+            # # 4*4单位矩阵
+            # mat = np.eye(4)
+            # mat[0:3, 0:3] = rot_mat
+            # target_bboxes = apply_affine_to_boxes(target_bboxes, mat)
+
             # new_pc = o3d.geometry.PointCloud()
             # new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-            # new_pc.colors = o3d.utility.Vector3dVector(np.array([blue for _ in range(point_cloud.shape[0])]))
-            # print(rot_angle_x, rot_angle_y, rot_angle_z)
-            # o3d.visualization.draw_geometries([old_pc, new_pc])
-            target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
+            # red = np.array([0.93, 0.93, 0.93])
+            # new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+            # line_sets = to_line_set(target_bboxes)
+            # o3d.visualization.draw_geometries([new_pc] + line_sets)
+
+
+
             if use_axis_head:
                 target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
                 target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
