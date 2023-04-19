@@ -19,11 +19,12 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 from utils import angle_between
+from config import use_axis_head
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3det1r"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr1"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -208,11 +209,12 @@ class ScannetDetectionDataset(Dataset):
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
-        with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
-            kps = pickle.load(f)
-        axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
-        axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
-        axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
+        if use_axis_head:
+            with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
+                kps = pickle.load(f)
+            axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
+            axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
+            axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
 
         if not self.use_color:
             point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
@@ -235,9 +237,10 @@ class ScannetDetectionDataset(Dataset):
         angle_residuals = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
-        target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
-        target_axismds = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
-        target_axisies = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+        if use_axis_head:
+            target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+            target_axismds = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+            target_axisies = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
 
         # if self.augment and self.use_random_cuboid:
         #     (
@@ -268,9 +271,10 @@ class ScannetDetectionDataset(Dataset):
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
 
-        target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
-        target_axismds[0: axismd.shape[0], :] = axismd[:, 0:3]
-        target_axisies[0: axisie.shape[0], :] = axisie[:, 0:3]
+        if use_axis_head:
+            target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
+            target_axismds[0: axismd.shape[0], :] = axismd[:, 0:3]
+            target_axisies[0: axisie.shape[0], :] = axisie[:, 0:3]
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
@@ -296,11 +300,25 @@ class ScannetDetectionDataset(Dataset):
             rot_mat_z = pc_util.rotz(rot_angle_z)
             rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
 
+            # import open3d as o3d
+            # from copy import deepcopy
+            #
+            #
+            # old_pc = o3d.geometry.PointCloud()
+            # old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+            # red, blue = np.array([1, 0, 0]), np.array([0, 0, 1])
+            # old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
             point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
+            # new_pc = o3d.geometry.PointCloud()
+            # new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+            # new_pc.colors = o3d.utility.Vector3dVector(np.array([blue for _ in range(point_cloud.shape[0])]))
+            # print(rot_angle_x, rot_angle_y, rot_angle_z)
+            # o3d.visualization.draw_geometries([old_pc, new_pc])
             target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
-            target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
-            target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
-            target_axisies = np.dot(target_axisies, np.transpose(rot_mat))
+            if use_axis_head:
+                target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
+                target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
+                target_axisies = np.dot(target_axisies, np.transpose(rot_mat))
 
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]
@@ -350,9 +368,6 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
-        ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
-        ret_dict["gt_axismds"] = target_axismds.astype(np.float32)
-        ret_dict["gt_axisies"] = target_axisies.astype(np.float32)
         # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
@@ -370,4 +385,8 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_angles"] = raw_angles.astype(np.float32)
         ret_dict["point_cloud_dims_min"] = point_cloud_dims_min.astype(np.float32)
         ret_dict["point_cloud_dims_max"] = point_cloud_dims_max.astype(np.float32)
+        if use_axis_head:
+            ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
+            ret_dict["gt_axismds"] = target_axismds.astype(np.float32)
+            ret_dict["gt_axisies"] = target_axisies.astype(np.float32)
         return ret_dict
