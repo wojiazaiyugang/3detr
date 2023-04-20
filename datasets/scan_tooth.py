@@ -7,24 +7,62 @@ An axis aligned bounding box is parameterized by (cx,cy,cz) and (dx,dy,dz)
 where (cx,cy,cz) is the center point of the box, dx is the x-axis length of the box.
 """
 import os
-import sys
 import pickle
+from typing import List
+from copy import deepcopy
 
 import numpy as np
+import open3d as o3d
 import torch
-import utils.pc_util as pc_util
 from torch.utils.data import Dataset
+
+import utils.pc_util as pc_util
+from config import use_axis_head
 from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
-from utils import angle_between
-from config import use_axis_head
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
 DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
 DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
+
+
+def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
+    """
+    bbox转line_set
+    :return:
+    """
+    line_sets = []
+    for bbox in bboxes:
+        center = bbox[0:3]
+        size = bbox[3:6]
+        # 获取bbox的8个顶点
+        points = []
+        point1 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
+        point2 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
+        point3 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
+        point4 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
+        point5 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
+        point6 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
+        point7 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
+        point8 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
+        points = [point1, point2, point3, point4, point5, point6, point7, point8]
+
+        lines = (
+            (0, 1), (1, 2), (2, 3), (3, 0),  # 四个面的线索引
+            (4, 5), (5, 6), (6, 7), (7, 4),  # 四个面的线索引
+            (0, 4), (1, 5), (2, 6), (3, 7)  # 四个面的线索引
+        )
+        line_set = o3d.geometry.LineSet(
+            points=o3d.utility.Vector3dVector(points),
+            lines=o3d.utility.Vector2iVector(lines),
+        )
+        colors = [(0, 1, 0) for _ in range(len(lines))]
+        line_set.colors = o3d.utility.Vector3dVector(colors)
+        line_sets.append(line_set)
+    return line_sets
 
 
 class ScannetDatasetConfig(object):
@@ -199,8 +237,6 @@ class ScannetDetectionDataset(Dataset):
 
     def __getitem__(self, idx):
         scan_name = self.scan_names[idx]
-        if self.split_set == "val":
-            print(scan_name)
         mesh_vertices = np.load(os.path.join(self.data_path, scan_name) + "_vert.npy")
         instance_labels = np.load(
             os.path.join(self.data_path, scan_name) + "_ins_label.npy"
@@ -278,19 +314,6 @@ class ScannetDetectionDataset(Dataset):
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
-            pass
-
-            # if np.random.random() > 0.5:
-            #     # Flipping along the YZ plane
-            #     point_cloud[:, 0] = -1 * point_cloud[:, 0]
-            #     target_bboxes[:, 0] = -1 * target_bboxes[:, 0]
-            #
-            # if np.random.random() > 0.5:
-            #     # Flipping along the XZ plane
-            #     point_cloud[:, 1] = -1 * point_cloud[:, 1]
-            #     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
-
-            # Rotation along up-axis/Z-axis
             angle = 12  # -15 ~ +15 degree
             rot_angle_x = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
             rot_mat_x = pc_util.rotx(rot_angle_x)
@@ -300,69 +323,40 @@ class ScannetDetectionDataset(Dataset):
             rot_mat_z = pc_util.rotz(rot_angle_z)
             rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
 
-            # import open3d as o3d
-            # from copy import deepcopy
-            # from typing import List
-            #
-            # def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
-            #     """
-            #     bbox转line_set
-            #     :return:
-            #     """
-            #     line_sets = []
-            #     for bbox in bboxes:
-            #         center = bbox[0:3]
-            #         size = bbox[3:6]
-            #         # 获取bbox的8个顶点
-            #         points = []
-            #         point1 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
-            #         point2 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
-            #         point3 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
-            #         point4 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
-            #         point5 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
-            #         point6 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
-            #         point7 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
-            #         point8 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
-            #         points = [point1, point2, point3, point4, point5, point6, point7, point8]
-            #
-            #         lines = (
-            #             (0, 1), (1, 2), (2, 3), (3, 0),  # 四个面的线索引
-            #             (4, 5), (5, 6), (6, 7), (7, 4),  # 四个面的线索引
-            #             (0, 4), (1, 5), (2, 6), (3, 7)  # 四个面的线索引
-            #         )
-            #         line_set = o3d.geometry.LineSet(
-            #             points=o3d.utility.Vector3dVector(points),
-            #             lines=o3d.utility.Vector2iVector(lines),
-            #         )
-            #         colors = [(0, 1, 0) for _ in range(len(lines))]
-            #         line_set.colors = o3d.utility.Vector3dVector(colors)
-            #         line_sets.append(line_set)
-            #     return line_sets
+            show = False
 
+            if show:
+                old_pc = o3d.geometry.PointCloud()
+                old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+                red = np.array([0.93, 0.93, 0.93])
+                old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+                line_sets = to_line_set(target_bboxes)
+                o3d.visualization.draw_geometries([old_pc] + line_sets)
 
-            # old_pc = o3d.geometry.PointCloud()
-            # old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-            # red = np.array([0.93, 0.93, 0.93])
-            # old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
-            # line_sets = to_line_set(target_bboxes)
-            # o3d.visualization.draw_geometries([old_pc] + line_sets)
+            def compute_bbox(point_cloud, semantic_labels):
+                target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
+                bboxes = []
+                for label in np.unique(semantic_labels):
+                    if label == 0:
+                        continue
+                    pc = point_cloud[semantic_labels == label]
+                    bbox_start, bbox_end = np.min(pc, axis=0), np.max(pc, axis=0)
+                    box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
+                    bboxes.append(np.concatenate([box_center, box_size]))
+                bboxes = np.array(bboxes)
+                target_bboxes[:bboxes.shape[0]] = bboxes
+                return target_bboxes
 
             point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
-            target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
-            # from monai.apps.detection.transforms.box_ops import apply_affine_to_boxes
-            # # 4*4单位矩阵
-            # mat = np.eye(4)
-            # mat[0:3, 0:3] = rot_mat
-            # target_bboxes = apply_affine_to_boxes(target_bboxes, mat)
+            target_bboxes = compute_bbox(point_cloud, semantic_labels)
 
-            # new_pc = o3d.geometry.PointCloud()
-            # new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-            # red = np.array([0.93, 0.93, 0.93])
-            # new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
-            # line_sets = to_line_set(target_bboxes)
-            # o3d.visualization.draw_geometries([new_pc] + line_sets)
-
-
+            if show:
+                new_pc = o3d.geometry.PointCloud()
+                new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+                red = np.array([0.93, 0.93, 0.93])
+                new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+                line_sets = to_line_set(target_bboxes)
+                o3d.visualization.draw_geometries([new_pc] + line_sets)
 
             if use_axis_head:
                 target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
@@ -372,8 +366,6 @@ class ScannetDetectionDataset(Dataset):
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]
         point_cloud_dims_max = point_cloud.max(axis=0)[:3]
-        # axisfls_dims_min = target_axisfls.min(axis=0)[:3]
-        # axisfls_dims_max = target_axisfls.max(axis=0)[:3]
 
         box_centers = target_bboxes.astype(np.float32)[:, 0:3]
         box_centers_normalized = shift_scale_points(
@@ -384,20 +376,9 @@ class ScannetDetectionDataset(Dataset):
             ],
             dst_range=self.center_normalizing_range,
         )
-        # target_axisfls = target_axisfls.astype(np.float32)[:, 0:3]
-        # target_axisfls_normalized = shift_scale_points(
-        #     target_axisfls[None, ...],
-        #     src_range=[
-        #         point_cloud_dims_min[None, ...],
-        #         point_cloud_dims_max[None, ...],
-        #     ],
-        #     dst_range=self.center_normalizing_range,
-        #
-        # )
+
         box_centers_normalized = box_centers_normalized.squeeze(0)
         box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
-        # target_axisfls_normalized = target_axisfls_normalized.squeeze(0)
-        # target_axisfls_normalized = target_axisfls_normalized * target_bboxes_mask[..., None]
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -417,7 +398,6 @@ class ScannetDetectionDataset(Dataset):
         ret_dict["gt_box_corners"] = box_corners.astype(np.float32)
         ret_dict["gt_box_centers"] = box_centers.astype(np.float32)
         ret_dict["gt_box_centers_normalized"] = box_centers_normalized.astype(np.float32)
-        # ret_dict["gt_axisfls_normalized"] = target_axisfls_normalized.astype(np.float32)
         ret_dict["gt_angle_class_label"] = angle_classes.astype(np.int64)
         ret_dict["gt_angle_residual_label"] = angle_residuals.astype(np.float32)
         target_bboxes_semcls = np.zeros((MAX_NUM_OBJ))
