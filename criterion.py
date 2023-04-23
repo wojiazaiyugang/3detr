@@ -9,7 +9,7 @@ from utils.box_util import generalized_box3d_iou
 from utils.dist import all_reduce_average
 from utils.misc import huber_loss
 
-from config import use_axis_head
+from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 
 
 class Matcher(nn.Module):
@@ -112,13 +112,27 @@ class SetCriterion(nn.Module):
             # thus, this loss does not have a loss_weight associated with it.
             "loss_cardinality": self.loss_cardinality,
         }
+        self.loss_function_datas = {}  # loss函数额外需要的数据
 
         if use_axis_head:
             self.loss_functions.update({
-                "loss_axisfl": self.loss_axisfl,
-                "loss_axismd": self.loss_axismd,
-                "loss_axisie": self.loss_axisie,
+                "loss_axisfl": self.loss_axis,
+                "loss_axismd": self.loss_axis,
+                "loss_axisie": self.loss_axis,
             })
+            self.loss_function_datas.update({
+                "loss_axisfl": "axisfl",
+                "loss_axismd": "axismd",
+                "loss_axisie": "axisie",
+            })
+        if use_kps_head:
+            for kps_name in KEY_POINT_NAMES:
+                self.loss_functions.update({
+                    f"loss_{kps_name}": self.loss_kps,
+                })
+                self.loss_function_datas.update({
+                    f"loss_{kps_name}": kps_name,
+                })
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, assignments):
@@ -262,9 +276,33 @@ class SetCriterion(nn.Module):
 
         return {"loss_center": center_loss}
 
-    def loss_axisfl(self, outputs, targets, assignments):
-        axisfl = outputs["axisfl"]
-        gt_axisfl = targets["gt_axisfls"]
+    def loss_kps(self, outputs, targets, assignments, kp):
+        """
+        关键点损失函数
+        :param outputs:
+        :param targets:
+        :param assignments:
+        :param kp:
+        :return:
+        """
+        axisfl_dist = outputs["kps_dist"][kp]
+        if targets["num_boxes_replica"] > 0:
+            axisfl_loss = torch.gather(
+                axisfl_dist, 2, assignments["per_prop_gt_inds"].unsqueeze(-1)
+            ).squeeze(-1)
+            # zero-out non-matched proposals
+            axisfl_loss = axisfl_loss * assignments["proposal_matched_mask"]
+            axisfl_loss = axisfl_loss.sum()
+
+            if targets["num_boxes"] > 0:
+                axisfl_loss /= targets["num_boxes"]
+        else:
+            axisfl_loss = torch.zeros(1, device=axisfl_dist.device).squeeze()
+        return {f"loss_{kp}": axisfl_loss}
+
+    def loss_axis(self, outputs, targets, assignments, axisname):
+        axisfl = outputs[axisname]
+        gt_axisfl = targets[f"gt_{axisname}s"]
         if targets["num_boxes_replica"] > 0:
             gt_axisfl = torch.stack(
                 [
@@ -283,53 +321,7 @@ class SetCriterion(nn.Module):
             axisfl_loss /= targets["num_boxes"]
         else:
             axisfl_loss = torch.zeros(1, device=axisfl.device).squeeze()
-        return {"loss_axisfl": axisfl_loss}
-
-    def loss_axismd(self, outputs, targets, assignments):
-        axismd = outputs["axismd"]
-        gt_axismd = targets["gt_axismds"]
-        if targets["num_boxes_replica"] > 0:
-            gt_axismd = torch.stack(
-                [
-                    torch.gather(
-                        gt_axismd[:, :, x], 1, assignments["per_prop_gt_inds"]
-                    )
-                    for x in range(gt_axismd.shape[-1])
-                ],
-                dim=-1,
-            )
-            criterion = nn.CosineSimilarity(dim=2)
-            axismd_loss = 1 - criterion(axismd, gt_axismd)
-            axismd_loss *= assignments["proposal_matched_mask"]
-            axismd_loss = axismd_loss.sum()
-
-            axismd_loss /= targets["num_boxes"]
-        else:
-            axismd_loss = torch.zeros(1, device=axismd.device).squeeze()
-        return {"loss_axismd": axismd_loss}
-
-    def loss_axisie(self, outputs, targets, assignments):
-        axisie = outputs["axisie"]
-        gt_axisie = targets["gt_axisies"]
-        if targets["num_boxes_replica"] > 0:
-            gt_axisie = torch.stack(
-                [
-                    torch.gather(
-                        gt_axisie[:, :, x], 1, assignments["per_prop_gt_inds"]
-                    )
-                    for x in range(gt_axisie.shape[-1])
-                ],
-                dim=-1,
-            )
-            criterion = nn.CosineSimilarity(dim=2)
-            axisie_loss = 1 - criterion(axisie, gt_axisie)
-            axisie_loss *= assignments["proposal_matched_mask"]
-            axisie_loss = axisie_loss.sum()
-
-            axisie_loss /= targets["num_boxes"]
-        else:
-            axisie_loss = torch.zeros(1, device=axisie.device).squeeze()
-        return {"loss_axisie": axisie_loss}
+        return {f"loss_{axisname}": axisfl_loss}
 
     def loss_giou(self, outputs, targets, assignments):
         gious_dist = 1 - outputs["gious"]
@@ -409,11 +401,16 @@ class SetCriterion(nn.Module):
         center_dist = torch.cdist(
             outputs["center_normalized"], targets["gt_box_centers_normalized"], p=1
         )
-        # axisfl_dist = torch.cdist(
-        #     outputs["axisfl_normalized"].contiguous(), targets["gt_axisfls_normalized"].contiguous(), p=1
-        # )
         outputs["center_dist"] = center_dist
-        # outputs["axisfl_dist"] = axisfl_dist
+
+        if use_kps_head:
+            kps_dist = {}
+            for kp in KEY_POINT_NAMES:
+                kps_dist[kp] = torch.cdist(
+                    outputs[f"{kp}_normalized"].contiguous(), targets[f"gt_{kp}s_normalized"].contiguous(), p=1
+                )
+            outputs["kps_dist"] = kps_dist
+
         assignments = self.matcher(outputs, targets)
 
         losses = {}
@@ -426,7 +423,10 @@ class SetCriterion(nn.Module):
             ) or loss_wt_key not in self.loss_weight_dict:
                 # only compute losses with loss_wt > 0
                 # certain losses like cardinality are only logged and have no loss weight
-                curr_loss = self.loss_functions[k](outputs, targets, assignments)
+                if self.loss_function_datas[k]:
+                    curr_loss = self.loss_functions[k](outputs, targets, assignments, self.loss_function_datas[k])
+                else:
+                    curr_loss = self.loss_functions[k](outputs, targets, assignments)
                 losses.update(curr_loss)
 
         final_loss = 0
@@ -483,5 +483,10 @@ def build_criterion(args, dataset_config):
             "loss_axismd_weight": args.loss_axismd_weight,
             "loss_axisie_weight": args.loss_axisie_weight,
         })
+    if use_kps_head:
+        for kp in KEY_POINT_NAMES:
+            loss_weight_dict.update({
+                f"loss_{kp}_weight": eval(f"args.loss_{kp}_weight"),
+            })
     criterion = SetCriterion(matcher, dataset_config, loss_weight_dict)
     return criterion

@@ -20,6 +20,7 @@ from utils.dist import init_distributed, is_distributed, is_primary, get_rank, b
 from utils.misc import my_worker_init_fn
 from utils.io import save_checkpoint, resume_if_possible
 from utils.logger import Logger
+from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 
 
 def make_args_parser():
@@ -100,9 +101,14 @@ def make_args_parser():
     parser.add_argument("--loss_center_weight", default=5.0, type=float)
     parser.add_argument("--loss_size_weight", default=1.0, type=float)
 
-    parser.add_argument("--loss_axisfl_weight", default=5, type=float)
-    parser.add_argument("--loss_axismd_weight", default=5, type=float)
-    parser.add_argument("--loss_axisie_weight", default=5, type=float)
+    if use_axis_head:
+        parser.add_argument("--loss_axisfl_weight", default=5, type=float)
+        parser.add_argument("--loss_axismd_weight", default=5, type=float)
+        parser.add_argument("--loss_axisie_weight", default=5, type=float)
+
+    if use_kps_head:
+        for kp in KEY_POINT_NAMES:
+            parser.add_argument(f"--loss_{kp}_weight", default=5, type=float)
 
     ##### Dataset #####
     parser.add_argument(

@@ -1,11 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-
-"""
-Modified from https://github.com/facebookresearch/votenet
-Dataset for object bounding box regression.
-An axis aligned bounding box is parameterized by (cx,cy,cz) and (dx,dy,dz)
-where (cx,cy,cz) is the center point of the box, dx is the x-axis length of the box.
-"""
 import os
 import pickle
 from typing import List
@@ -17,16 +9,14 @@ import torch
 from torch.utils.data import Dataset
 
 import utils.pc_util as pc_util
-from config import use_axis_head
+from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 
-IGNORE_LABEL = -100
-MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"
 
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
@@ -245,25 +235,20 @@ class ScannetDetectionDataset(Dataset):
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
-        if use_axis_head:
+        if use_axis_head or use_kps_head:
             with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
                 kps = pickle.load(f)
-            axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
-            axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
-            axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
+            if use_axis_head:
+                axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
+                axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
+                axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
+            if use_kps_head:
+                key_points = {}
+                for kp in KEY_POINT_NAMES:
+                    key_points[kp] = np.array([[item[kp]["x"], item[kp]["y"], item[kp]["z"]] for item in kps])
 
-        if not self.use_color:
-            point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
-            pcl_color = mesh_vertices[:, 3:6]
-        else:
-            point_cloud = mesh_vertices[:, 0:6]
-            point_cloud[:, 3:] = (point_cloud[:, 3:] - MEAN_COLOR_RGB) / 256.0
-            pcl_color = point_cloud[:, 3:]
-
-        if self.use_height:
-            floor_height = np.percentile(point_cloud[:, 2], 0.99)
-            height = point_cloud[:, 2] - floor_height
-            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)], 1)
+        point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
+        pcl_color = mesh_vertices[:, 3:6]
 
         # ------------------------------- LABELS ------------------------------
         MAX_NUM_OBJ = self.dataset_config.max_num_obj
@@ -277,40 +262,12 @@ class ScannetDetectionDataset(Dataset):
             target_axisfls = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
             target_axismds = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
             target_axisies = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
-
-        # if self.augment and self.use_random_cuboid:
-        #     (
-        #         point_cloud,
-        #         instance_bboxes,
-        #         per_point_labels,
-        #     ) = self.random_cuboid_augmentor(
-        #         point_cloud, instance_bboxes, [instance_labels, semantic_labels]
-        #     )
-        #     instance_labels = per_point_labels[0]
-        #     semantic_labels = per_point_labels[1]
-        #
-        # point_cloud, choices = pc_util.random_sampling(
-        #     point_cloud, self.num_points, return_choices=True
-        # )
-        # instance_labels = instance_labels[choices]
-        # semantic_labels = semantic_labels[choices]
-
-        sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
-
-        for _c in self.dataset_config.nyu40ids_semseg:
-            sem_seg_labels[
-                semantic_labels == _c
-                ] = self.dataset_config.nyu40id2class_semseg[_c]
-
-        # pcl_color = pcl_color[choices]
-
-        target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
-        target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
-
-        if use_axis_head:
             target_axisfls[0: axisfl.shape[0], :] = axisfl[:, 0:3]
             target_axismds[0: axismd.shape[0], :] = axismd[:, 0:3]
             target_axisies[0: axisie.shape[0], :] = axisie[:, 0:3]
+
+        target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
+        target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
         if self.augment:
@@ -363,6 +320,10 @@ class ScannetDetectionDataset(Dataset):
                 target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
                 target_axisies = np.dot(target_axisies, np.transpose(rot_mat))
 
+            if use_kps_head:
+                for kp in key_points:
+                    key_points[kp] = np.dot(key_points[kp], np.transpose(rot_mat))
+
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]
         point_cloud_dims_max = point_cloud.max(axis=0)[:3]
@@ -376,9 +337,23 @@ class ScannetDetectionDataset(Dataset):
             ],
             dst_range=self.center_normalizing_range,
         )
-
         box_centers_normalized = box_centers_normalized.squeeze(0)
         box_centers_normalized = box_centers_normalized * target_bboxes_mask[..., None]
+        if use_kps_head:
+            keypoints_normalized = {}
+            for kp in key_points:
+                key_points[kp] = key_points[kp].astype(np.float32)
+                keypoints_normalized[kp] = shift_scale_points(
+                    key_points[kp][None, ...],
+                    src_range=[
+                        point_cloud_dims_min[None, ...],
+                        point_cloud_dims_max[None, ...],
+                    ],
+                    dst_range=self.center_normalizing_range,
+                )
+                keypoints_normalized[kp] = keypoints_normalized[kp].squeeze(0)
+                keypoints_normalized[kp] = keypoints_normalized[kp] * target_bboxes_mask[..., None]
+
         mult_factor = point_cloud_dims_max - point_cloud_dims_min
         box_sizes_normalized = scale_points(
             raw_sizes.astype(np.float32)[None, ...],
@@ -418,4 +393,7 @@ class ScannetDetectionDataset(Dataset):
             ret_dict["gt_axisfls"] = target_axisfls.astype(np.float32)
             ret_dict["gt_axismds"] = target_axismds.astype(np.float32)
             ret_dict["gt_axisies"] = target_axisies.astype(np.float32)
+        if use_kps_head:
+            ret_dict["gt_keypoints"] = key_points
+            ret_dict["gt_keypoints_normalizeds"] = keypoints_normalized
         return ret_dict

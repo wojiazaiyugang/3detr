@@ -14,7 +14,7 @@ from models.position_embedding import PositionEmbeddingCoordsSine
 from models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
                                 TransformerDecoderLayer, TransformerEncoder,
                                 TransformerEncoderLayer)
-from config import use_axis_head
+from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 
 
 class BoxProcessor(object):
@@ -169,6 +169,9 @@ class Model3DETR(nn.Module):
                 ("axismd_head", mlp_func(output_dim=3)),  # fmd轴的输出头
                 ("axisie_head", mlp_func(output_dim=3)),  # ie轴的输出头
             ]
+        if use_kps_head:
+            for kp in KEY_POINT_NAMES:
+                mlp_heads.append((f"{kp}_head", mlp_func(output_dim=3)))
 
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
@@ -244,6 +247,10 @@ class Model3DETR(nn.Module):
             axisfl = self.mlp_heads["axisfl_head"](box_features).sigmoid().transpose(1, 2) - 0.5
             axismd = self.mlp_heads["axismd_head"](box_features).sigmoid().transpose(1, 2) - 0.5
             axisie = self.mlp_heads["axisie_head"](box_features).sigmoid().transpose(1, 2) - 0.5
+        if use_kps_head:
+            kps = {}
+            for kp in KEY_POINT_NAMES:
+                kps[kp] = self.mlp_heads[f"{kp}_head"](box_features).sigmoid().transpose(1, 2) - 0.5
         size_normalized = (
             self.mlp_heads["size_head"](box_features).sigmoid().transpose(1, 2)
         )
@@ -259,6 +266,9 @@ class Model3DETR(nn.Module):
             axisfl = axisfl.reshape(num_layers, batch, num_queries, -1)
             axismd = axismd.reshape(num_layers, batch, num_queries, -1)
             axisie = axisie.reshape(num_layers, batch, num_queries, -1)
+        if use_kps_head:
+            for kp in KEY_POINT_NAMES:
+                kps[kp] = kps[kp].reshape(num_layers, batch, num_queries, -1)
         size_normalized = size_normalized.reshape(num_layers, batch, num_queries, -1)
         angle_logits = angle_logits.reshape(num_layers, batch, num_queries, -1)
         angle_residual_normalized = angle_residual_normalized.reshape(
@@ -277,6 +287,14 @@ class Model3DETR(nn.Module):
             ) = self.box_processor.compute_predicted_center(
                 center_offset[l], query_xyz, point_cloud_dims
             )
+            kps_normalized, kps_unnormalized = {}, {}
+            for kp in KEY_POINT_NAMES:
+                (
+                    kps_normalized[kp],
+                    kps_unnormalized[kp]
+                ) = self.box_processor.compute_predicted_center(
+                    kps[kp][l], query_xyz, point_cloud_dims
+                )
             angle_continuous = self.box_processor.compute_predicted_angle(
                 angle_logits[l], angle_residual[l]
             )
@@ -316,6 +334,11 @@ class Model3DETR(nn.Module):
                     "axisfl": axisfl[l],
                     "axismd": axismd[l],
                     "axisie": axisie[l],
+                })
+            if use_kps_head:
+                box_prediction.update({
+                    "kps_normalized": kps_normalized,
+                    "kps_unnormalized": kps_unnormalized,
                 })
             outputs.append(box_prediction)
 

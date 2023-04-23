@@ -16,7 +16,7 @@ from utils.dist import (
     reduce_dict,
     barrier,
 )
-
+from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 
 def compute_learning_rate(args, curr_epoch_normalized):
     assert curr_epoch_normalized <= 1.0 and curr_epoch_normalized >= 0.0
@@ -117,18 +117,19 @@ def train_one_epoch(
             mem_mb = torch.cuda.max_memory_allocated() / (1024 ** 2)
             eta_seconds = (max_iters - curr_iter) * time_delta.avg
             eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
-            for extra_loss_name in ["loss_axisfl", "loss_axisfl_angle_x", "loss_axisfl_angle_y", "loss_axisfl_angle_z"]:
-                if extra_loss_name not in loss_dict:
-                    loss_dict[extra_loss_name] = 0
-
+            extra_loss_str = ""
+            for extra_loss_name in ["loss_axisfl", "loss_axismd", "loss_axisie"]:
+                if extra_loss_name in loss_dict:
+                    extra_loss_str += f"{extra_loss_name}: {loss_dict[extra_loss_name]:0.2f}; "
+            for kp in KEY_POINT_NAMES:
+                if f"loss_{kp}" in loss_dict:
+                    extra_loss_str += f"loss_kps_{kp}: {loss_dict[f'loss_{kp}']:0.2f}; "
             print(
                 f"Epoch [{curr_epoch}/{args.max_epoch}]; "
                 f"Iter [{curr_iter}/{max_iters}]; "
                 f"Loss {loss_avg.avg:0.2f}; "
                 f"Center Loss {loss_dict['loss_center']:0.2f}; "
-                f"Axisfl Loss: {loss_dict.get('loss_axisfl', 0):0.2f}; "
-                f"Axismd Loss: {loss_dict.get('loss_axismd', 0):0.2f}; "
-                f"Axisie Loss: {loss_dict.get('loss_axisie', 0):0.2f}; "
+                f"""{extra_loss_str} """
                 f"LR {curr_lr:0.2e}; "
                 f"Iter time {time_delta.avg:0.2f}; "
                 f"ETA {eta_str}; "
