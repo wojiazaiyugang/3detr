@@ -74,7 +74,13 @@ def train_one_epoch(
         curr_time = time.time()
         curr_lr = adjust_learning_rate(args, optimizer, curr_iter / max_iters)
         for key in batch_data_label:
-            batch_data_label[key] = batch_data_label[key].to(net_device)
+            if "keypoints" in key:
+                d = {}
+                for k in batch_data_label[key]:
+                    d[k] = batch_data_label[key][k].to(net_device)
+                batch_data_label[key] = d
+            else:
+                batch_data_label[key] = batch_data_label[key].to(net_device)
 
         # Forward pass
         optimizer.zero_grad()
@@ -120,10 +126,10 @@ def train_one_epoch(
             extra_loss_str = ""
             for extra_loss_name in ["loss_axisfl", "loss_axismd", "loss_axisie"]:
                 if extra_loss_name in loss_dict:
-                    extra_loss_str += f"{extra_loss_name}: {loss_dict[extra_loss_name]:0.2f}; "
+                    extra_loss_str += f"{extra_loss_name}: {loss_dict[extra_loss_name]:0.3f}; "
             for kp in KEY_POINT_NAMES:
                 if f"loss_{kp}" in loss_dict:
-                    extra_loss_str += f"loss_kps_{kp}: {loss_dict[f'loss_{kp}']:0.2f}; "
+                    extra_loss_str += f"loss_kps_{kp}: {loss_dict[f'loss_{kp}']:0.3f}; "
             print(
                 f"Epoch [{curr_epoch}/{args.max_epoch}]; "
                 f"Iter [{curr_iter}/{max_iters}]; "

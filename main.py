@@ -102,13 +102,13 @@ def make_args_parser():
     parser.add_argument("--loss_size_weight", default=1.0, type=float)
 
     if use_axis_head:
-        parser.add_argument("--loss_axisfl_weight", default=5, type=float)
-        parser.add_argument("--loss_axismd_weight", default=5, type=float)
-        parser.add_argument("--loss_axisie_weight", default=5, type=float)
+        parser.add_argument("--loss_axisfl_weight", default=1, type=float)
+        parser.add_argument("--loss_axismd_weight", default=1, type=float)
+        parser.add_argument("--loss_axisie_weight", default=1, type=float)
 
     if use_kps_head:
         for kp in KEY_POINT_NAMES:
-            parser.add_argument(f"--loss_{kp}_weight", default=5, type=float)
+            parser.add_argument(f"--loss_{kp}_weight", default=0.5, type=float)
 
     ##### Dataset #####
     parser.add_argument(

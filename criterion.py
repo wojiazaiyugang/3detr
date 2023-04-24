@@ -407,7 +407,7 @@ class SetCriterion(nn.Module):
             kps_dist = {}
             for kp in KEY_POINT_NAMES:
                 kps_dist[kp] = torch.cdist(
-                    outputs[f"{kp}_normalized"].contiguous(), targets[f"gt_{kp}s_normalized"].contiguous(), p=1
+                    outputs[f"kps_normalized"][kp].contiguous(), targets[f"gt_keypoints_normalizeds"][kp].contiguous(), p=1
                 )
             outputs["kps_dist"] = kps_dist
 
@@ -423,7 +423,7 @@ class SetCriterion(nn.Module):
             ) or loss_wt_key not in self.loss_weight_dict:
                 # only compute losses with loss_wt > 0
                 # certain losses like cardinality are only logged and have no loss weight
-                if self.loss_function_datas[k]:
+                if k in self.loss_function_datas:
                     curr_loss = self.loss_functions[k](outputs, targets, assignments, self.loss_function_datas[k])
                 else:
                     curr_loss = self.loss_functions[k](outputs, targets, assignments)

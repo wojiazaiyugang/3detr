@@ -287,14 +287,15 @@ class Model3DETR(nn.Module):
             ) = self.box_processor.compute_predicted_center(
                 center_offset[l], query_xyz, point_cloud_dims
             )
-            kps_normalized, kps_unnormalized = {}, {}
-            for kp in KEY_POINT_NAMES:
-                (
-                    kps_normalized[kp],
-                    kps_unnormalized[kp]
-                ) = self.box_processor.compute_predicted_center(
-                    kps[kp][l], query_xyz, point_cloud_dims
-                )
+            if use_kps_head:
+                kps_normalized, kps_unnormalized = {}, {}
+                for kp in KEY_POINT_NAMES:
+                    (
+                        kps_normalized[kp],
+                        kps_unnormalized[kp]
+                    ) = self.box_processor.compute_predicted_center(
+                        kps[kp][l], query_xyz, point_cloud_dims
+                    )
             angle_continuous = self.box_processor.compute_predicted_angle(
                 angle_logits[l], angle_residual[l]
             )

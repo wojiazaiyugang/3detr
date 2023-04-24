@@ -266,6 +266,12 @@ class ScannetDetectionDataset(Dataset):
             target_axismds[0: axismd.shape[0], :] = axismd[:, 0:3]
             target_axisies[0: axisie.shape[0], :] = axisie[:, 0:3]
 
+        if use_kps_head:
+            for kp in KEY_POINT_NAMES:
+                k = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
+                k[0: key_points[kp].shape[0], :] = key_points[kp][:, 0:3]
+                key_points[kp] = k
+
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
 
