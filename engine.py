@@ -188,7 +188,13 @@ def evaluate(
     for batch_idx, batch_data_label in enumerate(dataset_loader):
         curr_time = time.time()
         for key in batch_data_label:
-            batch_data_label[key] = batch_data_label[key].to(net_device)
+            if "keypoints" in key:
+                d = {}
+                for k in batch_data_label[key]:
+                    d[k] = batch_data_label[key][k].to(net_device)
+                batch_data_label[key] = d
+            else:
+                batch_data_label[key] = batch_data_label[key].to(net_device)
 
         inputs = {
             "point_clouds": batch_data_label["point_clouds"],
