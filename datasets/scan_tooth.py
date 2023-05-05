@@ -15,8 +15,8 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr"
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411_with_axis_and_kps_fix/"
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411_with_axis_and_kps_fix/"
 
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
@@ -207,6 +207,7 @@ class ScannetDetectionDataset(Dataset):
             self.scan_names = [
                 sname for sname in self.scan_names if sname in all_scan_names
             ]
+            # self.scan_names = self.scan_names[:10]
             print(f"kept {len(self.scan_names)} scans out of {num_scans}")
         else:
             raise ValueError(f"Unknown split name {split_set}")
@@ -246,7 +247,15 @@ class ScannetDetectionDataset(Dataset):
                 key_points = {}
                 for kp in KEY_POINT_NAMES:
                     key_points[kp] = np.array([[item[kp]["x"], item[kp]["y"], item[kp]["z"]] for item in kps])
-
+            # 把1区和4区的关键点md方向对调，跟md轴保持一致，减小训练难度
+            for index, bbox in enumerate(instance_bboxes):
+                if bbox[6] in [1, 2, 3, 4, 5, 6, 7, 8, 25, 26, 27, 28, 29, 30, 31, 32]:
+                    for kp1, kp2 in [("ldc", "lmc"), ("occm", "occd"), ("bmc", "bdc"), ("mrd", "mrm"), ("lcm", "lcd"), ("nfcm", "nfcd")]:
+                        try:
+                            key_points[kp1][index], key_points[kp2][index] = key_points[kp2][index], key_points[kp1][index].copy()
+                        except KeyError:
+                            # 不存的key point跳过
+                            pass
         point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
         pcl_color = mesh_vertices[:, 3:6]
 
