@@ -250,12 +250,8 @@ class ScannetDetectionDataset(Dataset):
             # 把1区和4区的关键点md方向对调，跟md轴保持一致，减小训练难度
             for index, bbox in enumerate(instance_bboxes):
                 if bbox[6] in [1, 2, 3, 4, 5, 6, 7, 8, 25, 26, 27, 28, 29, 30, 31, 32]:
-                    for kp1, kp2 in [("ldc", "lmc"), ("occm", "occd"), ("bmc", "bdc"), ("mrd", "mrm"), ("lcm", "lcd"), ("nfcm", "nfcd")]:
-                        try:
-                            key_points[kp1][index], key_points[kp2][index] = key_points[kp2][index], key_points[kp1][index].copy()
-                        except KeyError:
-                            # 不存的key point跳过
-                            pass
+                    for kp1, kp2 in [("ldc", "lmc"), ("occm", "occd"), ("bmc", "bdc"), ("mrd", "mrm"), ("fcm", "fcd"), ("nfcm", "nfcd")]:
+                        key_points[kp1][index], key_points[kp2][index] = key_points[kp2][index], key_points[kp1][index].copy()
         point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
         pcl_color = mesh_vertices[:, 3:6]
 
