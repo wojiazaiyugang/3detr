@@ -108,7 +108,7 @@ def make_args_parser():
 
     if use_kps_head:
         for kp in KEY_POINT_NAMES:
-            parser.add_argument(f"--loss_{kp}_weight", default=0.5, type=float)
+            parser.add_argument(f"--loss_{kp}_weight", default=5, type=float)
 
     ##### Dataset #####
     parser.add_argument(
