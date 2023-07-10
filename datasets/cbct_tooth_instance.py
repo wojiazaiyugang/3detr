@@ -274,7 +274,7 @@ class ScannetDetectionDataset(Dataset):
             #     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
 
             # Rotation along up-axis/Z-axis
-            angle = 12  # -15 ~ +15 degree
+            angle = 36  # -5 ~ +5 degree
             rot_angle_x = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
             rot_mat_x = pc_util.rotx(rot_angle_x)
             rot_angle_y = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
