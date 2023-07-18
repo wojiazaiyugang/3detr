@@ -22,8 +22,8 @@ from utils import angle_between
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_farest"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_farest"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
