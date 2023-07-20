@@ -229,20 +229,20 @@ class ScannetDetectionDataset(Dataset):
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
 
-        # if self.augment and self.use_random_cuboid:
-        #     (
-        #         point_cloud,
-        #         instance_bboxes,
-        #         per_point_labels,
-        #     ) = self.random_cuboid_augmentor(
-        #         point_cloud, instance_bboxes, [instance_labels, semantic_labels]
-        #     )
-        #     instance_labels = per_point_labels[0]
-        #     semantic_labels = per_point_labels[1]
+        if self.augment:
+            (
+                point_cloud,
+                instance_bboxes,
+                per_point_labels,
+            ) = self.random_cuboid_augmentor(
+                point_cloud, instance_bboxes, None
+            )
+            # instance_labels = per_point_labels[0]
+            # semantic_labels = per_point_labels[1]
         #
-        # point_cloud, choices = pc_util.random_sampling(
-        #     point_cloud, self.num_points, return_choices=True
-        # )
+        point_cloud, choices = pc_util.random_sampling(
+            point_cloud, 50000, return_choices=True
+        )
         # instance_labels = instance_labels[choices]
         # semantic_labels = semantic_labels[choices]
 

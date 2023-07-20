@@ -16,7 +16,7 @@ python main.py \
 --loss_giou_weight 1 \
 --loss_no_object_weight 0.25 \
 --save_separate_checkpoint_every_epoch -1 \
---checkpoint_dir outputs/cbct_tooth_instance_6 \
+--checkpoint_dir outputs/cbct_tooth_instance_7 \
 --batchsize_per_gpu 8 \
 --dataset_root_dir /media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X_farthest \
 --meta_data_dir /media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X_farthest
