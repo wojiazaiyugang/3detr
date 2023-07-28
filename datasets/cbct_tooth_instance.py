@@ -11,6 +11,7 @@ import sys
 import pickle
 
 import numpy as np
+from copy import deepcopy
 import torch
 import utils.pc_util as pc_util
 from torch.utils.data import Dataset
@@ -19,11 +20,12 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 from utils import angle_between
+from .scan_tooth import to_line_set
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X_farthest"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_det_3detr_2X_farthest"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -229,22 +231,22 @@ class ScannetDetectionDataset(Dataset):
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
 
-        if self.augment:
-            (
-                point_cloud,
-                instance_bboxes,
-                per_point_labels,
-            ) = self.random_cuboid_augmentor(
-                point_cloud, instance_bboxes, None
-            )
-            # instance_labels = per_point_labels[0]
-            # semantic_labels = per_point_labels[1]
-        #
+        # if self.augment:
+        #     (
+        #         point_cloud,
+        #         instance_bboxes,
+        #         per_point_labels,
+        #     ) = self.random_cuboid_augmentor(
+        #         point_cloud, instance_bboxes, None
+        #     )
+        #     # instance_labels = per_point_labels[0]
+        #     # semantic_labels = per_point_labels[1]
+        # #
         point_cloud, choices = pc_util.random_sampling(
             point_cloud, 50000, return_choices=True
         )
-        # instance_labels = instance_labels[choices]
-        # semantic_labels = semantic_labels[choices]
+        instance_labels = instance_labels[choices]
+        semantic_labels = semantic_labels[choices]
 
         sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
 
@@ -253,7 +255,7 @@ class ScannetDetectionDataset(Dataset):
                 semantic_labels == _c
                 ] = self.dataset_config.nyu40id2class_semseg[_c]
 
-        # pcl_color = pcl_color[choices]
+        pcl_color = pcl_color[choices]
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
@@ -274,7 +276,7 @@ class ScannetDetectionDataset(Dataset):
             #     target_bboxes[:, 1] = -1 * target_bboxes[:, 1]
 
             # Rotation along up-axis/Z-axis
-            angle = 36  # -5 ~ +5 degree
+            angle = 12  # -5 ~ +5 degree
             rot_angle_x = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
             rot_mat_x = pc_util.rotx(rot_angle_x)
             rot_angle_y = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
@@ -283,8 +285,43 @@ class ScannetDetectionDataset(Dataset):
             rot_mat_z = pc_util.rotz(rot_angle_z)
             rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
 
+            # show = False
+
+
+            # if show:
+            #     import open3d as o3d
+            #     old_pc = o3d.geometry.PointCloud()
+            #     old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+            #     red = np.array([0.93, 0.93, 0.93])
+            #     old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+            #     line_sets = to_line_set(target_bboxes)
+            #     o3d.visualization.draw_geometries([old_pc] + line_sets)
+
+            def compute_bbox(point_cloud, semantic_labels):
+                target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
+                bboxes = []
+                for label in np.unique(semantic_labels):
+                    if label == 0:
+                        continue
+                    pc = point_cloud[semantic_labels == label]
+                    bbox_start, bbox_end = np.min(pc, axis=0), np.max(pc, axis=0)
+                    box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
+                    bboxes.append(np.concatenate([box_center, box_size]))
+                bboxes = np.array(bboxes)
+                target_bboxes[:bboxes.shape[0]] = bboxes
+                return target_bboxes
+
             point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
-            target_bboxes = self.dataset_config.rotate_aligned_boxes(target_bboxes, rot_mat)
+            target_bboxes = compute_bbox(point_cloud, semantic_labels)
+
+            # if show:
+            #
+            #     new_pc = o3d.geometry.PointCloud()
+            #     new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
+            #     red = np.array([0.93, 0.93, 0.93])
+            #     new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+            #     line_sets = to_line_set(target_bboxes)
+            #     o3d.visualization.draw_geometries([new_pc] + line_sets)
 
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = point_cloud.min(axis=0)[:3]
