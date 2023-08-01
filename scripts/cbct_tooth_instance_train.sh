@@ -16,7 +16,7 @@ python main.py \
 --loss_giou_weight 1 \
 --loss_no_object_weight 0.25 \
 --save_separate_checkpoint_every_epoch -1 \
---checkpoint_dir outputs/cbct_tooth_instance/8_8个数据集_随机5w \
+--checkpoint_dir outputs/cbct_tooth_instance_point_cloud/9 \
 --batchsize_per_gpu 8 \
---dataset_root_dir /media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733 \
---meta_data_dir /media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733
+--dataset_root_dir /media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733_farthest50000 \
+--meta_data_dir /media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733_farthest50000

@@ -24,8 +24,8 @@ from .scan_tooth import to_line_set
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733"  ## Replace with path to dataset
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733"  ## Replace with path to dataset
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733_farthest50000"  ## Replace with path to dataset
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/cbct_tooth_point_cloud_det_3detr_20230726+20230727+20230728+20230729+20230730+20230731+20230732+20230733_farthest50000"  ## Replace with path to dataset
 
 
 class ScannetDatasetConfig(object):
@@ -242,11 +242,11 @@ class ScannetDetectionDataset(Dataset):
         #     # instance_labels = per_point_labels[0]
         #     # semantic_labels = per_point_labels[1]
         # #
-        point_cloud, choices = pc_util.random_sampling(
-            point_cloud, 50000, return_choices=True
-        )
-        instance_labels = instance_labels[choices]
-        semantic_labels = semantic_labels[choices]
+        #point_cloud, choices = pc_util.random_sampling(
+         #   point_cloud, 50000, return_choices=True
+        #)
+        #instance_labels = instance_labels[choices]
+        #semantic_labels = semantic_labels[choices]
 
         sem_seg_labels = np.ones_like(semantic_labels) * IGNORE_LABEL
 
@@ -255,7 +255,7 @@ class ScannetDetectionDataset(Dataset):
                 semantic_labels == _c
                 ] = self.dataset_config.nyu40id2class_semseg[_c]
 
-        pcl_color = pcl_color[choices]
+        #pcl_color = pcl_color[choices]
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
