@@ -237,10 +237,10 @@ class ScannetDetectionDataset(Dataset):
                 instance_bboxes,
                 per_point_labels,
             ) = self.random_cuboid_augmentor(
-                point_cloud, instance_bboxes, None
+                point_cloud, instance_bboxes, [instance_labels, semantic_labels]
             )
-            # instance_labels = per_point_labels[0]
-            # semantic_labels = per_point_labels[1]
+            instance_labels = per_point_labels[0]
+            semantic_labels = per_point_labels[1]
         # #
         point_cloud, choices = pc_util.random_sampling(
            point_cloud, 50000, return_choices=True
