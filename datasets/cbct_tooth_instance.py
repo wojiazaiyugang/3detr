@@ -231,7 +231,7 @@ class ScannetDetectionDataset(Dataset):
         raw_sizes = np.zeros((MAX_NUM_OBJ, 3), dtype=np.float32)
         raw_angles = np.zeros((MAX_NUM_OBJ,), dtype=np.float32)
 
-        if self.augment:
+        if self.augment and False:
             (
                 point_cloud,
                 instance_bboxes,
