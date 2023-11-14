@@ -15,8 +15,8 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411_with_axis_and_kps_fix/"
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411_with_axis_and_kps_fix/"
+DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20230519_with_axis_and_kps"
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20230519_with_axis_and_kps"
 
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
@@ -254,6 +254,8 @@ class ScannetDetectionDataset(Dataset):
                         key_points[kp1][index], key_points[kp2][index] = key_points[kp2][index], key_points[kp1][index].copy()
         point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
         pcl_color = mesh_vertices[:, 3:6]
+        # 对point_cloud进行随机偏移-0.05~0.05
+        point_cloud = (point_cloud + np.random.random(point_cloud.shape) * 0.1 - 0.05).astype(np.float32)
 
         # ------------------------------- LABELS ------------------------------
         MAX_NUM_OBJ = self.dataset_config.max_num_obj
