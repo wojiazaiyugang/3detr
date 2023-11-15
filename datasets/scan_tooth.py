@@ -255,7 +255,8 @@ class ScannetDetectionDataset(Dataset):
         point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
         pcl_color = mesh_vertices[:, 3:6]
         # 对point_cloud进行随机偏移-0.05~0.05
-        point_cloud = (point_cloud + np.random.random(point_cloud.shape) * 0.1 - 0.05).astype(np.float32)
+        random_offset = 0.000625
+        point_cloud = (point_cloud + np.random.random(point_cloud.shape) * random_offset * 2 - random_offset).astype(np.float32)
 
         # ------------------------------- LABELS ------------------------------
         MAX_NUM_OBJ = self.dataset_config.max_num_obj
