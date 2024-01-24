@@ -16,7 +16,7 @@ from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 
 DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230411+20231214_with_axis_and_kps"
-DATASET_METADATA_DIR = "//media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230411+20231214_with_axis_and_kps"
+DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230411+20231214_with_axis_and_kps"
 
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
