@@ -6,17 +6,17 @@ authors = ["wojiazaiyugang <wojiazaiyugang@outlook.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.8,<3.12"
 torch = {url = "https://download.pytorch.org/whl/lts/1.8/cu111/torch-1.8.2%2Bcu111-cp38-cp38-linux_x86_64.whl"}
 matplotlib = "^3.6.3"
 opencv-python = "^4.7.0.68"
 plyfile = "^0.7.4"
-trimesh = ">=2.35.39,<2.35.40"
 networkx = ">=2.2,<2.3"
 numpy = "<1.24"
 cython = "^0.29.33"
 tensorboardx = "^2.5.1"
 tensorboard = "1.11"
+algorithm-assistant = {url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-0.1.9-py3-none-any.whl"}
 
 [build-system]
 requires = ["poetry-core"]

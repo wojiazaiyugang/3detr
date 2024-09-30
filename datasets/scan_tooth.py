@@ -2,6 +2,8 @@ import os
 import pickle
 from typing import List
 from copy import deepcopy
+from pathlib import Path
+import random
 
 import numpy as np
 import open3d as o3d
@@ -14,10 +16,25 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
+from algorithm_assistant import PointCloud, TOOTH, COLOR
+from algorithm_assistant.data_class import Color
 
 DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps"
 DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps"
 
+def pc_normalize(pc):  # type: ignore
+    """
+    对点云数据进行归一化
+    :param pc: 需要归一化的点云数据
+    :return: 归一化后的点云数据, 质心, 缩放因子
+    """
+    # 求质心，也就是一个平移量，实际上就是求均值
+    centroid = np.mean(pc, axis=0)
+    pc = pc - centroid
+    m = np.max(np.sqrt(np.sum(pc ** 2, axis=1)))
+    # 对点云进行缩放
+    pc = pc / m
+    return pc, centroid, m
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
     """
@@ -180,35 +197,38 @@ class ScannetDetectionDataset(Dataset):
         self.dataset_config = dataset_config
         assert split_set in ["train", "val"]
         self.split_set = split_set
-        if root_dir is None:
-            root_dir = DATASET_ROOT_DIR
 
-        if meta_data_dir is None:
-            meta_data_dir = DATASET_METADATA_DIR
+        self.data_files = [[], [], []]
+        for dataset_name in ["20230228", "20230229", "20230230", "20230411", "20231214"]:
+            dataset = Path("/media/8TB/cache").joinpath(dataset_name)
+            for i, split_file_name in enumerate(["train.txt", "val.txt", "test.txt"]):
+                for data_dir_name in dataset.joinpath(split_file_name).read_text().splitlines():
+                    for jaw in ["upper", "lower"]:
+                        file = dataset.joinpath(data_dir_name, f"{jaw}_jaw.npz")
+                        if not file.exists():
+                            continue
+                        self.data_files[i].append(file)
 
-        self.data_path = root_dir
-        all_scan_names = list(
-            set(
-                [
-                    os.path.basename(x)[0:13]
-                    for x in os.listdir(self.data_path)
-                    if x.startswith("scene")
-                ]
-            )
-        )
+        # if root_dir is None:
+        #     root_dir = DATASET_ROOT_DIR
+        #
+        # if meta_data_dir is None:
+        #     meta_data_dir = DATASET_METADATA_DIR
+
+        # self.data_path = root_dir
+        # all_scan_names = list(
+        #     set(
+        #         [
+        #             os.path.basename(x)[0:13]
+        #             for x in os.listdir(self.data_path)
+        #             if x.startswith("scene")
+        #         ]
+        #     )
+        # )
         if split_set == "all":
-            self.scan_names = all_scan_names
+            self.data_files = self.data_files[0] + self.data_files[1] + self.data_files[2]
         elif split_set in ["train", "val", "test"]:
-            split_filenames = os.path.join(meta_data_dir, f"scannetv2_{split_set}.txt")
-            with open(split_filenames, "r") as f:
-                self.scan_names = f.read().splitlines()
-            # remove unavailiable scans
-            num_scans = len(self.scan_names)
-            self.scan_names = [
-                sname for sname in self.scan_names if sname in all_scan_names
-            ]
-            # self.scan_names = self.scan_names[:10]
-            print(f"kept {len(self.scan_names)} scans out of {num_scans}")
+            self.data_files = self.data_files[["train", "val", "test"].index(split_set)]
         else:
             raise ValueError(f"Unknown split name {split_set}")
 
@@ -224,29 +244,70 @@ class ScannetDetectionDataset(Dataset):
         ]
 
     def __len__(self):
-        return len(self.scan_names)
+        return len(self.data_files)
 
     def __getitem__(self, idx):
-        scan_name = self.scan_names[idx]
-        mesh_vertices = np.load(os.path.join(self.data_path, scan_name) + "_vert.npy")
-        instance_labels = np.load(
-            os.path.join(self.data_path, scan_name) + "_ins_label.npy"
-        )
-        semantic_labels = np.load(
-            os.path.join(self.data_path, scan_name) + "_sem_label.npy"
-        )
-        instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
+        data_file: Path = self.data_files[idx]
+        data = np.load(data_file)
+        verts, colors = data["verts"], data["colors"]
+        info = pickle.load(open(data_file.parent.joinpath("info.pickle"), "rb"))
+
+        point_cloud = PointCloud(points=verts.copy())
+        matrix = np.eye(4)
+        matrix[:3,:3] = o3d.geometry.get_rotation_matrix_from_xyz((random.uniform(0, 2 * np.pi), random.uniform(0, 2 * np.pi), random.uniform(0, 2 * np.pi)))
+        point_cloud = point_cloud.transform(matrix)
+        x_min, x_max = point_cloud.points[:, 0].min(), point_cloud.points[:, 0].max()
+        x = random.uniform(x_min, x_max)
+        indices = np.where(point_cloud.points[:, 0] < x)[0]
+        new_colors = colors[indices]
+        if len(np.unique(new_colors, axis=0)) >= 6:
+            verts, colors = verts[indices], new_colors
+
+        # 采样
+        np.random.seed(123)
+        sample_count = 50000
+        point_count = verts.shape[0]
+        sample_index = np.array([], dtype=np.int64)
+        while sample_index.shape[0] < sample_count:
+            index = np.random.choice(point_count, min(point_count, sample_count), replace=False)
+            sample_index = np.append(sample_index, index)
+        sample_index = sample_index[:sample_count]
+        verts = verts[sample_index]
+        colors = colors[sample_index]
+
+        vertices, centroid, m = pc_normalize(verts)
+
+
+        semantic_labels, instance_bboxes = [], []
+        for color in colors:
+            c = Color(red=int(color[0] * 255), green=int(color[1] * 255), blue=int(color[2] * 255))
+            if c == Color(204, 204, 204):
+                semantic_labels.append(0)
+                continue
+            tooth = TOOTH.get_tooth_by_color(color=c)
+            semantic_labels.append(tooth.category)
+        semantic_labels = np.array(semantic_labels, dtype=np.uint32)
+        categories = np.unique(semantic_labels).tolist()
+        info = [i for i in info if i["category"] in categories]
+        instance_bboxes = np.array([[*b["box"]["min"], *b["box"]["max"], b["category"]] for b in info], dtype=np.float64)
+        instance_bboxes[:, :6] = (instance_bboxes[:, :6] - np.concatenate([centroid, centroid])) / m
+        mesh_vertices = vertices.astype(np.float32)
+
         if use_axis_head or use_kps_head:
-            with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
-                kps = pickle.load(f)
             if use_axis_head:
-                axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
-                axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
-                axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
+                axisfl = np.array([[item["keypoints"]["axisfl"]["x"], item["keypoints"]["axisfl"]["y"], item["keypoints"]["axisfl"]["z"]] for item in info])
+                axismd = np.array([[item["keypoints"]["axismd"]["x"], item["keypoints"]["axismd"]["y"], item["keypoints"]["axismd"]["z"]] for item in info])
+                axisie = np.array([[item["keypoints"]["axisie"]["x"], item["keypoints"]["axisie"]["y"], item["keypoints"]["axisie"]["z"]] for item in info])
             if use_kps_head:
                 key_points = {}
                 for kp in KEY_POINT_NAMES:
-                    key_points[kp] = np.array([[item[kp]["x"], item[kp]["y"], item[kp]["z"]] for item in kps])
+                    points = []
+                    for item in info:
+                        if kp in item["keypoints"]:
+                            points.append([item["keypoints"][kp]["x"], item["keypoints"][kp]["y"], item["keypoints"][kp]["z"]])
+                        else:
+                            points.append(centroid)
+                    key_points[kp] = (np.array(points) - centroid) / m
             # 把1区和4区的关键点md方向对调，跟md轴保持一致，减小训练难度
             for index, bbox in enumerate(instance_bboxes):
                 if bbox[6] in [1, 2, 3, 4, 5, 6, 7, 8, 25, 26, 27, 28, 29, 30, 31, 32]:

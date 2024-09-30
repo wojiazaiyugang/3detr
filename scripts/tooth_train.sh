@@ -4,7 +4,7 @@
 
 python main.py \
 --dataset_name scan_tooth \
---max_epoch 2160 \
+--max_epoch 1080 \
 --enc_type masked \
 --enc_dropout 0.3 \
 --nqueries 256 \
@@ -16,7 +16,7 @@ python main.py \
 --loss_giou_weight 1 \
 --loss_no_object_weight 0.25 \
 --save_separate_checkpoint_every_epoch -1 \
---checkpoint_dir outputs/scan_tooth/38 \
+--checkpoint_dir outputs/scan_tooth/39 \
 --batchsize_per_gpu 8 \
 --dataset_root_dir /media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps \
 --meta_data_dir /media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps
