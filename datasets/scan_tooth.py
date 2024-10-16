@@ -252,19 +252,19 @@ class ScannetDetectionDataset(Dataset):
         verts, colors = data["verts"], data["colors"]
         info = pickle.load(open(data_file.parent.joinpath("info.pickle"), "rb"))
 
-        point_cloud = PointCloud(points=verts.copy())
-        matrix = np.eye(4)
-        matrix[:3,:3] = o3d.geometry.get_rotation_matrix_from_xyz((random.uniform(0, 2 * np.pi), random.uniform(0, 2 * np.pi), random.uniform(0, 2 * np.pi)))
-        point_cloud = point_cloud.transform(matrix)
-        x_min, x_max = point_cloud.points[:, 0].min(), point_cloud.points[:, 0].max()
-        x = random.uniform(x_min, x_max)
-        indices = np.where(point_cloud.points[:, 0] < x)[0]
-        new_colors = colors[indices]
-        if len(np.unique(new_colors, axis=0)) >= 6:
-            verts, colors = verts[indices], new_colors
+        # point_cloud = PointCloud(points=verts.copy())
+        # matrix = np.eye(4)
+        # matrix[:3,:3] = o3d.geometry.get_rotation_matrix_from_xyz((random.uniform(np.pi, 2 * np.pi), random.uniform(np.pi, 2 * np.pi), random.uniform(np.pi, 2 * np.pi)))
+        # point_cloud = point_cloud.transform(matrix)
+        # x_min, x_max = point_cloud.points[:, 0].min(), point_cloud.points[:, 0].max()
+        # x = random.uniform(x_min, x_max)
+        # indices = np.where(point_cloud.points[:, 0] < x)[0]
+        # new_colors = colors[indices]
+        # if len(np.unique(new_colors, axis=0)) >= 6:
+        #     verts, colors = verts[indices], new_colors
 
         # 采样
-        np.random.seed(123)
+        # np.random.seed(123)
         sample_count = 50000
         point_count = verts.shape[0]
         sample_index = np.array([], dtype=np.int64)
@@ -289,8 +289,12 @@ class ScannetDetectionDataset(Dataset):
         semantic_labels = np.array(semantic_labels, dtype=np.uint32)
         categories = np.unique(semantic_labels).tolist()
         info = [i for i in info if i["category"] in categories]
-        instance_bboxes = np.array([[*b["box"]["min"], *b["box"]["max"], b["category"]] for b in info], dtype=np.float64)
-        instance_bboxes[:, :6] = (instance_bboxes[:, :6] - np.concatenate([centroid, centroid])) / m
+        for b in info:
+            min_, max_ = b["box"]["min"], b["box"]["max"]
+            center = [(((min_[i] + max_[i]) / 2) - centroid[i]) / m for i in range(3)]
+            size = [(max_[i] - min_[i]) / m for i in range(3)]
+            instance_bboxes.append([*center, *size, b["category"]])
+        instance_bboxes = np.array(instance_bboxes, dtype=np.float64)
         mesh_vertices = vertices.astype(np.float32)
 
         if use_axis_head or use_kps_head:
@@ -363,7 +367,8 @@ class ScannetDetectionDataset(Dataset):
                 red = np.array([0.93, 0.93, 0.93])
                 old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
                 line_sets = to_line_set(target_bboxes)
-                o3d.visualization.draw_geometries([old_pc] + line_sets)
+                coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=3)
+                o3d.visualization.draw_geometries([old_pc] + line_sets + [coordinate_frame])
 
             def compute_bbox(point_cloud, semantic_labels):
                 target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
@@ -385,10 +390,12 @@ class ScannetDetectionDataset(Dataset):
             if show:
                 new_pc = o3d.geometry.PointCloud()
                 new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-                red = np.array([0.93, 0.93, 0.93])
-                new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+                # red = np.array([0.93, 0.93, 0.93])
+                # new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
+                new_pc.colors = o3d.utility.Vector3dVector(colors)
                 line_sets = to_line_set(target_bboxes)
-                o3d.visualization.draw_geometries([new_pc] + line_sets)
+                coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=3)
+                o3d.visualization.draw_geometries([new_pc] + line_sets + [coordinate_frame])
 
             if use_axis_head:
                 target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
