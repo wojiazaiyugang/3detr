@@ -359,7 +359,7 @@ class ScannetDetectionDataset(Dataset):
             rot_mat_z = pc_util.rotz(rot_angle_z)
             rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
 
-            show = True
+            show = False
 
             if show:
                 old_pc = o3d.geometry.PointCloud()
