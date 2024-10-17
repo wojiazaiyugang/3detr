@@ -252,16 +252,16 @@ class ScannetDetectionDataset(Dataset):
         verts, colors = data["verts"], data["colors"]
         info = pickle.load(open(data_file.parent.joinpath("info.pickle"), "rb"))
 
-        # point_cloud = PointCloud(points=verts.copy())
-        # matrix = np.eye(4)
-        # matrix[:3,:3] = o3d.geometry.get_rotation_matrix_from_xyz((random.uniform(np.pi, 2 * np.pi), random.uniform(np.pi, 2 * np.pi), random.uniform(np.pi, 2 * np.pi)))
-        # point_cloud = point_cloud.transform(matrix)
-        # x_min, x_max = point_cloud.points[:, 0].min(), point_cloud.points[:, 0].max()
-        # x = random.uniform(x_min, x_max)
-        # indices = np.where(point_cloud.points[:, 0] < x)[0]
-        # new_colors = colors[indices]
-        # if len(np.unique(new_colors, axis=0)) >= 6:
-        #     verts, colors = verts[indices], new_colors
+        point_cloud = PointCloud(points=verts.copy())
+        matrix = np.eye(4)
+        matrix[:3,:3] = o3d.geometry.get_rotation_matrix_from_xyz((random.uniform(-np.pi/72, np.pi/72), random.uniform(np.pi, 2 * np.pi), random.uniform(-np.pi/72, np.pi/72)))
+        point_cloud = point_cloud.transform(matrix)
+        x_min, x_max = point_cloud.points[:, 0].min(), point_cloud.points[:, 0].max()
+        x = random.uniform(x_min, x_max)
+        indices = np.where(point_cloud.points[:, 0] < x)[0]
+        new_colors = colors[indices]
+        if len(np.unique(new_colors, axis=0)) >= 6:
+            verts, colors = verts[indices], new_colors
 
         # 采样
         # np.random.seed(123)
@@ -359,7 +359,7 @@ class ScannetDetectionDataset(Dataset):
             rot_mat_z = pc_util.rotz(rot_angle_z)
             rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
 
-            show = False
+            show = True
 
             if show:
                 old_pc = o3d.geometry.PointCloud()
