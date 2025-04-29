@@ -37,7 +37,7 @@ def softmax(x):
 
 # This is exactly the same as VoteNet so that we can compare evaluations.
 def parse_predictions(
-    predicted_boxes, sem_cls_probs, objectness_probs, point_cloud, config_dict
+    predicted_boxes, sem_cls_probs, objectness_probs, point_cloud, config_dict, outputs = None
 ):
     """Parse predictions to OBB parameters and suppress overlapping boxes
 
@@ -62,6 +62,13 @@ def parse_predictions(
     obj_prob = objectness_probs.detach().cpu().numpy()
 
     pred_corners_3d_upright_camera = predicted_boxes.detach().cpu().numpy()
+    if outputs:
+        axisfl = outputs['axisfl'].detach().cpu().numpy()
+        axismd = outputs['axismd'].detach().cpu().numpy()
+        axisie = outputs['axisie'].detach().cpu().numpy()
+        keypoints = {}
+        for kp in outputs["kps_unnormalized"]:
+            keypoints[kp] = outputs["kps_unnormalized"][kp].detach().cpu().numpy()
 
     K = pred_corners_3d_upright_camera.shape[1]  # K==num_proposal
     bsize = pred_corners_3d_upright_camera.shape[0]
@@ -222,18 +229,36 @@ def parse_predictions(
                 ]
             )
         else:
-            batch_pred_map_cls.append(
-                [
-                    (
-                        pred_sem_cls[i, j].item(),
-                        pred_corners_3d_upright_camera[i, j],
-                        obj_prob[i, j],
-                    )
-                    for j in range(pred_corners_3d_upright_camera.shape[1])
-                    if pred_mask[i, j] == 1
-                    and obj_prob[i, j] > config_dict["conf_thresh"]
-                ]
-            )
+            if outputs:
+                batch_pred_map_cls.append(
+                    [
+                        (
+                            sem_cls_probs[i, j],
+                            pred_corners_3d_upright_camera[i, j],
+                            obj_prob[i, j],
+                            axisfl[i, j],
+                            axismd[i, j],
+                            axisie[i, j],
+                            {kp:keypoints[kp][i][j] for kp in keypoints}
+                        )
+                        for j in range(pred_corners_3d_upright_camera.shape[1])
+                        if pred_mask[i, j] == 1
+                        and obj_prob[i, j] > config_dict["conf_thresh"]
+                    ]
+                )
+            else:
+                batch_pred_map_cls.append(
+                    [
+                        (
+                            pred_sem_cls[i, j].item(),
+                            pred_corners_3d_upright_camera[i, j],
+                            obj_prob[i, j],
+                        )
+                        for j in range(pred_corners_3d_upright_camera.shape[1])
+                        if pred_mask[i, j] == 1
+                           and obj_prob[i, j] > config_dict["conf_thresh"]
+                    ]
+                )
 
     return batch_pred_map_cls
 

@@ -15,9 +15,6 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 
-DATASET_ROOT_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps"
-DATASET_METADATA_DIR = "/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps"
-
 
 def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
     """
@@ -180,11 +177,6 @@ class ScannetDetectionDataset(Dataset):
         self.dataset_config = dataset_config
         assert split_set in ["train", "val"]
         self.split_set = split_set
-        if root_dir is None:
-            root_dir = DATASET_ROOT_DIR
-
-        if meta_data_dir is None:
-            meta_data_dir = DATASET_METADATA_DIR
 
         self.data_path = root_dir
         all_scan_names = list(

@@ -34,6 +34,7 @@ def build_dataset(args):
             dataset_config,
             split_set="val",
             root_dir=args.dataset_root_dir,
+            meta_data_dir=args.meta_data_dir,
             use_color=args.use_color,
             augment=False
         ),

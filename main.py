@@ -48,7 +48,7 @@ def make_args_parser():
     )
     ### Encoder
     parser.add_argument(
-        "--enc_type", default="vanilla", choices=["masked", "maskedv2", "vanilla"]
+        "--enc_type", default="masked", choices=["masked", "maskedv2", "vanilla"]
     )
     # Below options are only valid for vanilla encoder
     parser.add_argument("--enc_nlayers", default=3, type=int)
@@ -112,7 +112,7 @@ def make_args_parser():
 
     ##### Dataset #####
     parser.add_argument(
-        "--dataset_name", required=True, type=str,
+        "--dataset_name", type=str,
     )
     parser.add_argument(
         "--dataset_root_dir",
