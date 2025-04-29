@@ -54,7 +54,7 @@ def make_args_parser():
     parser.add_argument("--enc_nlayers", default=3, type=int)
     parser.add_argument("--enc_dim", default=256, type=int)
     parser.add_argument("--enc_ffn_dim", default=128, type=int)
-    parser.add_argument("--enc_dropout", default=0.1, type=float)
+    parser.add_argument("--enc_dropout", default=0.3, type=float)
     parser.add_argument("--enc_nhead", default=4, type=int)
     parser.add_argument("--enc_pos_embed", default=None, type=str)
     parser.add_argument("--enc_activation", default="relu", type=str)
@@ -91,10 +91,10 @@ def make_args_parser():
     parser.add_argument("--matcher_objectness_cost", default=0, type=float)
 
     ### Loss Weights
-    parser.add_argument("--loss_giou_weight", default=0, type=float)
+    parser.add_argument("--loss_giou_weight", default=1, type=float)
     parser.add_argument("--loss_sem_cls_weight", default=1, type=float)
     parser.add_argument(
-        "--loss_no_object_weight", default=0.2, type=float
+        "--loss_no_object_weight", default=0.25, type=float
     )  # "no object" or "background" class for detection
     parser.add_argument("--loss_angle_cls_weight", default=0.1, type=float)
     parser.add_argument("--loss_angle_reg_weight", default=0.5, type=float)
@@ -112,19 +112,19 @@ def make_args_parser():
 
     ##### Dataset #####
     parser.add_argument(
-        "--dataset_name", type=str,
+        "--dataset_name", type=str, default="scan_tooth"
     )
     parser.add_argument(
         "--dataset_root_dir",
         type=str,
-        default=None,
+        default="/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps",
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
     parser.add_argument(
         "--meta_data_dir",
         type=str,
-        default=None,
+        default="/media/3TB/data/xiaoliutech/scan_tooth_det_3detr_20230228+20230229+20230230+20230411+20231214_with_axis_and_kps",
         help="Root directory containing the metadata files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
@@ -133,7 +133,7 @@ def make_args_parser():
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)
-    parser.add_argument("--max_epoch", default=720, type=int)
+    parser.add_argument("--max_epoch", default=1080, type=int)
     parser.add_argument("--eval_every_epoch", default=10, type=int)
     parser.add_argument("--seed", default=0, type=int)
 
@@ -142,10 +142,10 @@ def make_args_parser():
     parser.add_argument("--test_ckpt", default=None, type=str)
 
     ##### I/O #####
-    parser.add_argument("--checkpoint_dir", default=None, type=str)
+    parser.add_argument("--checkpoint_dir", default="outputs/scan_tooth/test", type=str)
     parser.add_argument("--log_every", default=10, type=int)
     parser.add_argument("--log_metrics_every", default=20, type=int)
-    parser.add_argument("--save_separate_checkpoint_every_epoch", default=100, type=int)
+    parser.add_argument("--save_separate_checkpoint_every_epoch", default=-1, type=int)
 
     ##### Distributed Training #####
     parser.add_argument("--ngpus", default=1, type=int)

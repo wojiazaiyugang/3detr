@@ -182,6 +182,14 @@ class Model3DETR(nn.Module):
         query_xyz = torch.stack(query_xyz)
         query_xyz = query_xyz.permute(1, 2, 0)
 
+        # from algorithm_assistant import visualizer
+        # from copy import deepcopy
+        # query_xyz = torch.zeros_like(query_xyz)
+        # query_xyz[0][0] = torch.from_numpy(visualizer.get_point(name="F").to_numpy() / 50)
+        # # new_query_xyz = torch.zeros_like(query_xyz)
+        # # new_query_xyz[0][0] = query_xyz[0][4:5]
+        # # query_xyz = new_query_xyz
+
         # Gater op above can be replaced by the three lines below from the pointnet2 codebase
         # xyz_flipped = encoder_xyz.transpose(1, 2).contiguous()
         # query_xyz = gather_operation(xyz_flipped, query_inds.int())

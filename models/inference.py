@@ -37,8 +37,10 @@ def pc_normalize(pc: npt.NDArray[np.float64]) -> Tuple[npt.NDArray[np.float64], 
     """
     # 求质心，也就是一个平移量，实际上就是求均值
     centroid = np.mean(pc, axis=0)
+    # centroid = np.zeros_like(centroid)
     pc = pc - centroid
     m = np.max(np.sqrt(np.sum(pc ** 2, axis=1)))
+    # m = 50
     # 对点云进行缩放
     pc = pc / m
     return pc, centroid, m
