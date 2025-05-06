@@ -24,7 +24,8 @@ def init_model() -> None:
     parser = make_args_parser()
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
-    model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
+    # model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
+    model_file = Path("/home/yujiannan/Projects/3detr/outputs/scan_tooth/单牙点击检测/checkpoint_best.pth")
     model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
@@ -178,9 +179,13 @@ if __name__ == '__main__':
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
 
+    try:
+        visualizer.add_points([visualizer.get_point(name="F")], name="F")
+    except Exception: ...
+
     tooth_detect_results = infer(mesh=mesh)
     for tooth_detect_result in tooth_detect_results:
-        visualizer.add_tooth_detect_result(detect_result=tooth_detect_result, show_keypoints=False)
-    visualizer.show()
+        visualizer.add_tooth_detect_result(detect_result=tooth_detect_result, show_keypoints=False, show_axis=False)
+    visualizer.show(block= False)
 
 
