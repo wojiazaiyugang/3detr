@@ -175,7 +175,7 @@ class Model3DETR(nn.Module):
 
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
-    def get_query_embeddings(self, encoder_xyz, point_cloud_dims):
+    def get_query_embeddings(self, encoder_xyz, point_cloud_dims, click_point):
         query_inds = furthest_point_sample(encoder_xyz, self.num_queries)
         # query_inds = torch.stack([torch.randperm(encoder_xyz.shape[1])[:self.num_queries] for _ in range(encoder_xyz.shape[0])]).to(encoder_xyz.device)
         query_inds = query_inds.long()
@@ -191,6 +191,10 @@ class Model3DETR(nn.Module):
         # xyz_flipped = encoder_xyz.transpose(1, 2).contiguous()
         # query_xyz = gather_operation(xyz_flipped, query_inds.int())
         # query_xyz = query_xyz.transpose(1, 2)
+
+        query_click_point = click_point.unsqueeze(1)
+        query_xyz = torch.cat([query_xyz, query_click_point], dim=1)
+
         pos_embed = self.pos_embedding(query_xyz, input_range=point_cloud_dims)
         query_embed = self.query_projection(pos_embed)
         return query_xyz, query_embed
@@ -359,6 +363,7 @@ class Model3DETR(nn.Module):
 
     def forward(self, inputs, encoder_only=False):
         point_clouds = inputs["point_clouds"]
+        click_point = inputs["click_point"]
 
         enc_xyz, enc_features, enc_inds = self.run_encoder(point_clouds)
         enc_features = self.encoder_to_decoder_projection(
@@ -375,7 +380,7 @@ class Model3DETR(nn.Module):
             inputs["point_cloud_dims_min"],
             inputs["point_cloud_dims_max"],
         ]
-        query_xyz, query_embed = self.get_query_embeddings(enc_xyz, point_cloud_dims)
+        query_xyz, query_embed = self.get_query_embeddings(enc_xyz, point_cloud_dims, click_point)
         # query_embed: batch x channel x npoint
         enc_pos = self.pos_embedding(enc_xyz, input_range=point_cloud_dims)
 
@@ -388,7 +393,7 @@ class Model3DETR(nn.Module):
         )[0]
 
         box_predictions = self.get_box_predictions(
-            query_xyz, point_cloud_dims, box_features
+            query_xyz[:, 256:, :], point_cloud_dims, box_features[:, 256:, :, :]
         )
         return box_predictions
 

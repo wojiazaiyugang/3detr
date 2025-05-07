@@ -227,10 +227,23 @@ class ScannetDetectionDataset(Dataset):
         semantic_labels = np.load(
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
+        # 找一个不是背景的点
+        labels = np.unique(semantic_labels)
+        labels = labels[labels != 0]
+        click_point_label = np.random.choice(labels)
+        # 对应所有的点
+        points = mesh_vertices[:, 0:3][semantic_labels == click_point_label]
+        # 随机选择一个点
+        click_point = points[np.random.randint(points.shape[0])]
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
+        # 找到instance_bboxes 第6列等于click_point_label的index
+        click_point_index = int(np.where(instance_bboxes[:, 6] == click_point_label)[0])
+        instance_bboxes = instance_bboxes[click_point_index: click_point_index+1]
+        semantic_labels[semantic_labels != click_point_label] = 0
         if use_axis_head or use_kps_head:
             with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
                 kps = pickle.load(f)
+                kps = [kps[click_point_index]]
             if use_axis_head:
                 axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
                 axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
@@ -402,4 +415,5 @@ class ScannetDetectionDataset(Dataset):
         if use_kps_head:
             ret_dict["gt_keypoints"] = key_points
             ret_dict["gt_keypoints_normalizeds"] = keypoints_normalized
+        ret_dict["click_point"] = click_point
         return ret_dict
