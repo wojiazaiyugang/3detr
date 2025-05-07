@@ -201,6 +201,7 @@ def evaluate(
             "point_clouds": batch_data_label["point_clouds"],
             "point_cloud_dims_min": batch_data_label["point_cloud_dims_min"],
             "point_cloud_dims_max": batch_data_label["point_cloud_dims_max"],
+            "click_point": batch_data_label["click_point"],
         }
         outputs = model(inputs)
 

@@ -228,15 +228,13 @@ class ScannetDetectionDataset(Dataset):
             os.path.join(self.data_path, scan_name) + "_sem_label.npy"
         )
         # 找一个不是背景的点
-        labels = np.unique(semantic_labels)
-        labels = labels[labels != 0]
+        instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
+        labels = np.unique(instance_bboxes[:, 6])
         click_point_label = np.random.choice(labels)
         # 对应所有的点
         points = mesh_vertices[:, 0:3][semantic_labels == click_point_label]
         # 随机选择一个点
         click_point = points[np.random.randint(points.shape[0])]
-        instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
-        # 找到instance_bboxes 第6列等于click_point_label的index
         click_point_index = int(np.where(instance_bboxes[:, 6] == click_point_label)[0])
         instance_bboxes = instance_bboxes[click_point_index: click_point_index+1]
         semantic_labels[semantic_labels != click_point_label] = 0
