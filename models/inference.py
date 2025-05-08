@@ -25,7 +25,7 @@ def init_model() -> None:
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
     # model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
-    model_file = Path("/home/yujiannan/Projects/3detr/outputs/scan_tooth/单牙点击检测/checkpoint_best.pth")
+    model_file = Path("/home/yujiannan/Projects/3detr/outputs/单牙点击检测/2/checkpoint_best.pth")
     model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
@@ -160,10 +160,13 @@ def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
         init_model()
     vertices, centroid, m = sample(mesh)
     point_clouds = torch.from_numpy(vertices).unsqueeze(0).to(torch.float32).to(device)
+    click_point = (visualizer.get_point(name="F").to_numpy() - centroid) / m
+    click_point = torch.from_numpy(click_point).unsqueeze(0).to(torch.float32).to(device)
     inputs = {
         "point_clouds": point_clouds,
         "point_cloud_dims_min": torch.from_numpy(vertices.min(axis=0)).unsqueeze(0).to(torch.float32).to(device),
         "point_cloud_dims_max": torch.from_numpy(vertices.max(axis=0)).unsqueeze(0).to(torch.float32).to(device),
+        "click_point": click_point
     }
     outputs = model(inputs)
     config_dict = get_ap_config_dict(remove_empty_box=True,
