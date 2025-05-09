@@ -129,7 +129,7 @@ def make_args_parser():
               If None, default values from scannet.py/sunrgbd.py are used",
     )
     parser.add_argument("--dataset_num_workers", default=4, type=int)
-    parser.add_argument("--batchsize_per_gpu", default=8, type=int)
+    parser.add_argument("--batchsize_per_gpu", default=7, type=int)
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)

@@ -361,7 +361,7 @@ class Model3DETR(nn.Module):
             "aux_outputs": aux_outputs,  # output from intermediate layers of decoder
         }
 
-    def forward(self, inputs, encoder_only=False):
+    def forward(self, inputs, encoder_only=False, infer=False):
         point_clouds = inputs["point_clouds"]
         click_point = inputs["click_point"]
 
@@ -391,10 +391,14 @@ class Model3DETR(nn.Module):
         box_features = self.decoder(
             tgt, enc_features, query_pos=query_embed, pos=enc_pos
         )[0]
-
-        box_predictions = self.get_box_predictions(
-            query_xyz, point_cloud_dims, box_features
-        )
+        if infer:
+            box_predictions = self.get_box_predictions(
+                query_xyz[:, -1, :].unsqueeze(1), point_cloud_dims, box_features[:, -1, :, :].unsqueeze(1)
+            )
+        else:
+            box_predictions = self.get_box_predictions(
+                query_xyz, point_cloud_dims, box_features
+            )
         return box_predictions
 
 
