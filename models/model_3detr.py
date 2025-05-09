@@ -393,7 +393,7 @@ class Model3DETR(nn.Module):
         )[0]
 
         box_predictions = self.get_box_predictions(
-            query_xyz[:, 256:, :], point_cloud_dims, box_features[:, 256:, :, :]
+            query_xyz, point_cloud_dims, box_features
         )
         return box_predictions
 

@@ -142,7 +142,7 @@ def make_args_parser():
     parser.add_argument("--test_ckpt", default=None, type=str)
 
     ##### I/O #####
-    parser.add_argument("--checkpoint_dir", default="outputs/单牙点击检测/2", type=str)
+    parser.add_argument("--checkpoint_dir", default="outputs/单牙点击检测/4", type=str)
     parser.add_argument("--log_every", default=10, type=int)
     parser.add_argument("--log_metrics_every", default=20, type=int)
     parser.add_argument("--save_separate_checkpoint_every_epoch", default=-1, type=int)
