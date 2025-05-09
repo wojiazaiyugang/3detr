@@ -268,16 +268,16 @@ class SetCriterion(nn.Module):
                 center_dist, 2, assignments["per_prop_gt_inds"].unsqueeze(-1)
             ).squeeze(-1)
             # zero-out non-matched proposals
-            center_loss = center_loss * assignments["proposal_matched_mask"]
-            center_loss[:, -1] *= 10
-            center_loss = center_loss.sum()
+            center_losses = center_loss * assignments["proposal_matched_mask"]
+            center_losses[:, -1] *= 10
+            center_loss = center_losses.sum()
 
             if targets["num_boxes"] > 0:
                 center_loss /= targets["num_boxes"]
         else:
             center_loss = torch.zeros(1, device=center_dist.device).squeeze()
 
-        return {"loss_center": center_loss}
+        return {"loss_center": center_loss, "loss_last_query_center": center_losses[:, -1].sum()}
 
     def loss_kps(self, outputs, targets, assignments, kp):
         """

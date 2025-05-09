@@ -136,6 +136,7 @@ def train_one_epoch(
                 f"Iter [{curr_iter}/{max_iters}]; "
                 f"Loss {loss_avg.avg:0.2f}; "
                 f"Center Loss {loss_dict['loss_center']:0.2f}; "
+                f"最后一个query center loss {loss_dict['loss_last_query_center']:0.2f};"
                 f"""{extra_loss_str} """
                 f"LR {curr_lr:0.2e}; "
                 f"Iter time {time_delta.avg:0.2f}; "
