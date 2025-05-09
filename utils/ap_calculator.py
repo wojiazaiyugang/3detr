@@ -230,6 +230,8 @@ def parse_predictions(
             )
         else:
             if outputs:
+                # pred_mask = np.zeros_like(pred_mask)
+                # pred_mask[:, -1] = 1
                 batch_pred_map_cls.append(
                     [
                         (

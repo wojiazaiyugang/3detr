@@ -269,6 +269,7 @@ class SetCriterion(nn.Module):
             ).squeeze(-1)
             # zero-out non-matched proposals
             center_loss = center_loss * assignments["proposal_matched_mask"]
+            center_loss[:, -1] *= 10
             center_loss = center_loss.sum()
 
             if targets["num_boxes"] > 0:
