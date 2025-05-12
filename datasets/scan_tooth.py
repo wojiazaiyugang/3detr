@@ -241,7 +241,7 @@ class ScannetDetectionDataset(Dataset):
                 kps.append(copy_k)
                 click_point = np.array([copy_k["occc"]["x"],copy_k["occc"]["y"],copy_k["occc"]["z"]], dtype=np.float32)
                 # 三个方向加随机2mm的位移
-                offset = np.random.uniform(-2, 2, size=(3,)) / 50
+                offset = (np.random.uniform(-2, 2, size=(3,)) / 50).astype(np.float32)
                 click_point = click_point + offset
             if use_axis_head:
                 axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
