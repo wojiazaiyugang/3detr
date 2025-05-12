@@ -73,13 +73,13 @@ class Matcher(nn.Module):
         for b in range(batchsize):
             assign = []
             if nactual_gt[b] > 0:
-                assign = linear_sum_assignment(final_cost[b, :, : nactual_gt[b]])
+                matrix = final_cost[b, :, : nactual_gt[b]]
+                matrix[-1, -1] = -10000
+                assign = linear_sum_assignment(matrix)
                 assign = [
                     torch.from_numpy(x).long().to(device=pred_cls_prob.device)
                     for x in assign
                 ]
-                assign[0][-1] = nqueries - 1
-                assign[1][-1] = nactual_gt[b] - 1
                 per_prop_gt_inds[b, assign[0]] = assign[1]
                 proposal_matched_mask[b, assign[0]] = 1
             assignments.append(assign)
