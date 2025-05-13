@@ -231,6 +231,10 @@ class ScannetDetectionDataset(Dataset):
         instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
         labels = np.unique(instance_bboxes[:, 6])
         click_point_label = np.random.choice(labels)
+        # 对应所有的点
+        points = mesh_vertices[:, 0:3][semantic_labels == click_point_label]
+        # 随机选择一个点
+        click_point = points[np.random.randint(points.shape[0])]
         # 随机选择一个点
         click_point_index = int(np.where(instance_bboxes[:, 6] == click_point_label)[0])
         instance_bboxes = np.concatenate([instance_bboxes, instance_bboxes[click_point_index: click_point_index + 1]], axis=0)
@@ -239,10 +243,6 @@ class ScannetDetectionDataset(Dataset):
                 kps = pickle.load(f)
                 copy_k = deepcopy(kps[click_point_index])
                 kps.append(copy_k)
-                click_point = np.array([copy_k["occc"]["x"],copy_k["occc"]["y"],copy_k["occc"]["z"]], dtype=np.float32)
-                # 三个方向加随机2mm的位移
-                offset = (np.random.uniform(-2, 2, size=(3,)) / 50).astype(np.float32)
-                click_point = click_point + offset
             if use_axis_head:
                 axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
                 axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
@@ -309,8 +309,10 @@ class ScannetDetectionDataset(Dataset):
                 o3d.visualization.draw_geometries([old_pc] + line_sets)
 
             def compute_bbox(point_cloud, semantic_labels):
+                nonlocal click_point_label
                 target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
                 bboxes = []
+                click_box = None
                 for label in np.unique(semantic_labels):
                     if label == 0:
                         continue
@@ -318,8 +320,11 @@ class ScannetDetectionDataset(Dataset):
                     bbox_start, bbox_end = np.min(pc, axis=0), np.max(pc, axis=0)
                     box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
                     bboxes.append(np.concatenate([box_center, box_size]))
+                    if label == click_point_label:
+                        click_box = np.concatenate([box_center, box_size])
                 bboxes = np.array(bboxes)
                 target_bboxes[:bboxes.shape[0]] = bboxes
+                target_bboxes[bboxes.shape[0]] = click_box
                 return target_bboxes
 
             point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))

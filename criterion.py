@@ -80,6 +80,8 @@ class Matcher(nn.Module):
                     torch.from_numpy(x).long().to(device=pred_cls_prob.device)
                     for x in assign
                 ]
+                assert assign[0][-1] == 256, assign[0][-1]
+                assert assign[1][-1] == nactual_gt[b] - 1, assign[1][-1]
                 per_prop_gt_inds[b, assign[0]] = assign[1]
                 proposal_matched_mask[b, assign[0]] = 1
             assignments.append(assign)
