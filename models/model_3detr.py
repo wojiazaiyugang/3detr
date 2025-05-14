@@ -133,6 +133,7 @@ class Model3DETR(nn.Module):
 
         self.num_queries = num_queries
         self.box_processor = BoxProcessor(dataset_config)
+        self.click_point_embedding = nn.Embedding(2, decoder_dim)
 
     def build_mlp_heads(self, dataset_config, decoder_dim, mlp_dropout):
         mlp_func = partial(
@@ -192,12 +193,15 @@ class Model3DETR(nn.Module):
         # query_xyz = gather_operation(xyz_flipped, query_inds.int())
         # query_xyz = query_xyz.transpose(1, 2)
 
-        query_click_point = click_point.unsqueeze(1)
-        query_xyz = torch.cat([query_xyz, query_click_point], dim=1)
+        query_xyz[:, -1, :] = click_point
 
         pos_embed = self.pos_embedding(query_xyz, input_range=point_cloud_dims)
         query_embed = self.query_projection(pos_embed)
-        return query_xyz, query_embed
+        # 生成一个mask表示最后一个query点是特殊的点
+        click_point_mask = torch.zeros((query_embed.shape[0], query_embed.shape[2]), dtype=torch.int64).to(query_embed.device)
+        click_point_mask[:, -1] = 1
+        click_point_embed = self.click_point_embedding(click_point_mask).permute(0, 2, 1)
+        return query_xyz, query_embed + click_point_embed
 
     def _break_up_pc(self, pc):
         # pc may contain color/normals.
