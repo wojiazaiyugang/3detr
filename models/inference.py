@@ -149,10 +149,12 @@ def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothD
                                                   ))
     return detect_results
 
-def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
+def infer(mesh: TriangleMesh, click_point: Point3D, only_return_click_bbox: bool = True) -> List[ToothDetectResult3D]:
     """
     牙齿检测
     :param mesh:
+    :param click_point:
+    :param only_return_click_bbox: 是否只返回点击的牙齿的bbox，否则会返回检测到的所有牙齿box
     :return:
     """
     global model
@@ -160,7 +162,7 @@ def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
         init_model()
     vertices, centroid, m = sample(mesh)
     point_clouds = torch.from_numpy(vertices).unsqueeze(0).to(torch.float32).to(device)
-    click_point = (visualizer.get_point(name="F").to_numpy() - centroid) / m
+    click_point = (click_point.to_numpy() - centroid) / m
     click_point = torch.from_numpy(click_point).unsqueeze(0).to(torch.float32).to(device)
     inputs = {
         "point_clouds": point_clouds,
@@ -168,7 +170,7 @@ def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
         "point_cloud_dims_max": torch.from_numpy(vertices.max(axis=0)).unsqueeze(0).to(torch.float32).to(device),
         "click_point": click_point
     }
-    outputs = model(inputs, infer=True)
+    outputs = model(inputs, infer=only_return_click_bbox)
     config_dict = get_ap_config_dict(remove_empty_box=True,
                                      dataset_config=dataset_config,
                                      nms_iou=0.25,
@@ -178,15 +180,13 @@ def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
 
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
-    mesh_file = Path("/media/8TB/dataset/20230228/605643/lower_jaw.ply")
+    # mesh_file = Path("/media/8TB/dataset/20231214/670384患者姓名石柳/upper_jaw.ply") # 普通数据
+    mesh_file = Path("/media/8TB/dataset/20241218/from_yuqi_20241111_extract_crown_finish_s2023-08-17_00002-010/upper_jaw.ply") # 牙冠设计数据
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
-
-    try:
-        visualizer.add_points([visualizer.get_point(name="F")], name="F")
-    except Exception: ...
-
-    tooth_detect_results = infer(mesh=mesh)
+    click_point = visualizer.get_point(name="F")
+    visualizer.add_points([click_point], name="F")
+    tooth_detect_results = infer(mesh=mesh, click_point=click_point)
     for tooth_detect_result in tooth_detect_results:
         visualizer.add_tooth_detect_result(detect_result=tooth_detect_result, show_keypoints=True, show_axis=True)
     visualizer.show(block= False)
