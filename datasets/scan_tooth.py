@@ -211,6 +211,7 @@ class ScannetDetectionDataset(Dataset):
                     self.datas.append((mesh, mesh_data))
                 # if len(self.datas) > 1:
                 #     break
+        print(f"数据加载完成 {split_set=} {len(self.datas)=}")
         self.center_normalizing_range = [
             np.zeros((1, 3), dtype=np.float32),
             np.ones((1, 3), dtype=np.float32),
