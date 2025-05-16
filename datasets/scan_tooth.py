@@ -15,7 +15,7 @@ from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
 from utils.pc_normalize import get_normalize_transformation
-from utils.pc_util import scale_points, shift_scale_points
+from utils.pc_util import scale_points, shift_scale_points, get_sample_point_cloud_index
 
 Data: TypeAlias = Tuple[TriangleMesh, Dict[Tooth, Tuple[ToothAxis, ToothKeypoints]]] # 数据，牙齿网格和牙齿信息
 
@@ -249,11 +249,12 @@ class ScannetDetectionDataset(Dataset):
         if self.split_set == "train": # 数据增强
             transformation = np.identity(4)
             # 三个轴随机旋转
+            angle = 180
             matrix = o3d.geometry.get_rotation_matrix_from_xyz(
                 (
-                    np.random.uniform(-np.pi, np.pi),
-                    np.random.uniform(-np.pi, np.pi),
-                    np.random.uniform(-np.pi, np.pi),
+                    np.random.uniform(-np.pi / 180 * angle, np.pi / 180 * angle),
+                    np.random.uniform(-np.pi / 180 * angle, np.pi / 180 * angle),
+                    np.random.uniform(-np.pi / 180 * angle, np.pi / 180 * angle),
                 )
             )
             transformation[:3, :3] = matrix
@@ -269,14 +270,18 @@ class ScannetDetectionDataset(Dataset):
         # visualizer.add_triangle_mesh(triangle_mesh=new_mesh)
         # visualizer.show()
 
-        sample_index = np.random.choice(len(new_mesh.vertices), 10000)
+        sample_index = get_sample_point_cloud_index(points=new_mesh.vertices, num_sample=10000)
         point_cloud, colors = new_mesh.vertices[sample_index], new_mesh.colors[sample_index]
 
-        # point_cloud = PointCloud(points=vertices)
-        # visualizer.add_point_cloud(point_cloud, radius=0.15 * transformation[0,0])
+        # from algorithm_assistant import PointCloud, visualizer
+        # point_cloud = PointCloud(points=point_cloud)
+        # visualizer.add_point_cloud(point_cloud, radius=0.15 * 0.05)
         # visualizer.show()
 
         tooth_point_cloud = point_cloud[(colors == tooth.color.to_rgb_float_tuple()).all(axis=1)]
+        if len(tooth_point_cloud) == 0:
+            print(f"从点云里随机采样10000个点，恰好一个牙齿上的点都没采样到，虽然概率很小，但是还是发生了 {len(new_mesh.vertices)=} {len(point_cloud)=}")
+            return self.__getitem__(0)
         bbox_start, bbox_end = np.min(tooth_point_cloud, axis=0), np.max(tooth_point_cloud, axis=0)
         box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
         instance_bboxes = np.array([np.concatenate([box_center, box_size, np.array([tooth.category])])])

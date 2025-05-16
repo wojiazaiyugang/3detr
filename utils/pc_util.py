@@ -301,3 +301,19 @@ def write_lines_as_cylinders(pcl, filename, rad=0.005, res=64):
         )
     mesh_list = trimesh.util.concatenate(scene.dump())
     trimesh.io.export.export_mesh(mesh_list, "%s.ply" % (filename), file_type="ply")
+
+def get_sample_point_cloud_index(points: np.ndarray, num_sample: int) -> np.ndarray:
+    """
+    从点云里随机采样点，返回index，确保当点云数量小于采样数量时，点云所有点都能被采样到
+    :param points:
+    :param num_sample:
+    :return:
+    """
+    if num_sample <= len(points):
+        sample_index = np.random.choice(len(points), num_sample, replace=False)
+    else:
+        sample_index = np.arange(len(points))
+        extra_index = np.random.choice(len(points), num_sample - len(points), replace=True)
+        sample_index = np.concatenate([sample_index, extra_index])
+        np.random.shuffle(sample_index)
+    return sample_index

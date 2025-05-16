@@ -10,6 +10,7 @@ from main import make_args_parser
 from models.model_3detr import build_3detr, Model3DETR
 from utils.ap_calculator import get_ap_config_dict, parse_predictions, flip_axis_to_depth
 from utils.pc_normalize import get_normalize_transformation
+from utils.pc_util import get_sample_point_cloud_index
 
 model: Optional[Model3DETR] = None
 device = torch.device("cuda")
@@ -25,7 +26,7 @@ def init_model() -> None:
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
     # model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
-    model_file = Path("/home/yujiannan/Projects/3detr/outputs/单牙点击检测/11/checkpoint_best.pth")
+    model_file = Path("/home/yujiannan/Projects/3detr/outputs/单牙点击检测/12/checkpoint_best.pth")
     model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
@@ -133,7 +134,7 @@ def infer(mesh: TriangleMesh, click_point: Point3D, tid: int) -> List[ToothDetec
     assert new_mesh is not None, f"点击点{click_point}不在网格内"
     transformation = get_normalize_transformation(mesh=new_mesh, click_point=click_point)
     new_mesh = new_mesh.transform(transformation)
-    sample_index = np.random.choice(len(new_mesh.vertices), 10000)
+    sample_index = get_sample_point_cloud_index(points=new_mesh.vertices, num_sample=10000)
     point_cloud = new_mesh.vertices[sample_index]
     point_clouds = torch.from_numpy(point_cloud).unsqueeze(0).to(torch.float32).to(device)
     inputs = {
@@ -155,13 +156,13 @@ def infer(mesh: TriangleMesh, click_point: Point3D, tid: int) -> List[ToothDetec
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
     # mesh_file = Path("/media/8TB/dataset/20231214/670384患者姓名石柳/upper_jaw.ply") # 普通数据
-    mesh_file = Path("/media/8TB/dataset/20241218/from_yuqi_20241111_extract_crown_finish_s2023-12-18_00002-018/upper_jaw.ply") # 牙冠设计数据
-    # mesh_file = Path("/media/8TB/dataset/20230313/13292_649486/lower_jaw.stl") # 原始网格
+    # mesh_file = Path("/media/8TB/dataset/20241218/from_yuqi_20241111_extract_crown_finish_s2023-12-18_00002-018/upper_jaw.ply") # 牙冠设计数据
+    mesh_file = Path("/media/8TB/dataset/20230313/13292_649486/lower_jaw.stl") # 原始网格
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
     click_point = visualizer.get_point(name="F")
     visualizer.add_points([click_point], name="F")
-    tooth_detect_results = infer(mesh=mesh, click_point=click_point, tid=13)
+    tooth_detect_results = infer(mesh=mesh, click_point=click_point, tid=47)
     for tooth_detect_result in tooth_detect_results:
         visualizer.add_tooth_detect_result(detect_result=tooth_detect_result, show_keypoints=True, show_axis=True)
     visualizer.show(block= False)
