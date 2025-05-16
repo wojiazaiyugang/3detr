@@ -249,7 +249,7 @@ class ScannetDetectionDataset(Dataset):
         if self.split_set == "train": # 数据增强
             transformation = np.identity(4)
             # 三个轴随机旋转
-            angle = 180
+            angle = 15
             matrix = o3d.geometry.get_rotation_matrix_from_xyz(
                 (
                     np.random.uniform(-np.pi / 180 * angle, np.pi / 180 * angle),
