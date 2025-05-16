@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+import open3d as o3d
 import numpy as np
 import torch
 from algorithm_assistant import TriangleMesh, ToothKeypoints, ToothAxis, TOOTH, Tooth, ArcType, Sphere, Point3D, Color
@@ -143,7 +144,7 @@ class ScannetDetectionDataset(Dataset):
         self.split_set = split_set
         self.datas: List[Data] = []
 
-        for dataset_name in ["20230228", "20230229", "20230230", "20230411", "20231214"][-2:]:
+        for dataset_name in ["20230228", "20230229", "20230230", "20230411", "20231214"]:
             dataset = Path("/media/8TB/dataset").joinpath(dataset_name)
             if split_set == "train":
                 data_names = dataset.joinpath(f"train.txt").read_text().splitlines() + dataset.joinpath(f"val.txt").read_text().splitlines()
@@ -221,13 +222,15 @@ class ScannetDetectionDataset(Dataset):
     def __getitem__(self, idx: int):
         mesh, tooth_data = self.datas[idx] # 注意深拷贝问题
         # 随机选个牙
-        try:
-            tooth_color = random.choice(mesh.colors[(mesh.colors[:, 0] != 0.8) | (mesh.colors[:, 1] != 0.8) | (mesh.colors[:, 2] != 0.8)])
+        tooth_colors = np.unique(mesh.colors[(mesh.colors[:, 0] != 0.8) | (mesh.colors[:, 1] != 0.8) | (mesh.colors[:, 2] != 0.8)], axis=0)
+        for tooth_color in np.random.permutation(tooth_colors):
             tooth: Tooth = TOOTH.get_tooth_by_color(color=Color(red=int(tooth_color[0] * 255), green=int(tooth_color[1] * 255), blue=int(tooth_color[2] * 255)))
             # tooth = TOOTH.tooth_23
-            tooth_axis, tooth_keypoints = tooth_data[tooth]
-        except KeyError as e:
-            print(f"{idx=} {e=}")
+            if tooth in tooth_data:
+                tooth_axis, tooth_keypoints = tooth_data[tooth]
+                break
+        else:
+            print(f"{idx=}没有检测框")
             return self.__getitem__(0)
         # 获取这个牙的所有点
         tooth_vertices = mesh.vertices[(mesh.colors == tooth.color.to_rgb_float_tuple()).all(axis=1)]
@@ -242,14 +245,28 @@ class ScannetDetectionDataset(Dataset):
         tooth_axis = tooth_axis.transform(transformation)
         tooth_keypoints = tooth_keypoints.transform(transformation)
 
+        if self.split_set == "train": # 数据增强
+            transformation = np.identity(4)
+            # 三个轴随机旋转
+            matrix = o3d.geometry.get_rotation_matrix_from_xyz(
+                (
+                    np.random.uniform(-np.pi, np.pi),
+                    np.random.uniform(-np.pi, np.pi),
+                    np.random.uniform(-np.pi, np.pi),
+                )
+            )
+            transformation[:3, :3] = matrix
+            new_mesh = new_mesh.transform(transformation)
+            tooth_axis = tooth_axis.transform(transformation)
+            tooth_keypoints = tooth_keypoints.transform(transformation)
+
+        # from algorithm_assistant import visualizer
         # visualizer.add_points([click_point])
         # visualizer.add_tooth_axis(axis=tooth_axis, point=tooth_keypoints.occc)
         # visualizer.add_tooth_keypoints(tooth=tooth, tooth_keypoints=tooth_keypoints)
         # visualizer.add_triangle_mesh(triangle_mesh=mesh)
         # visualizer.add_triangle_mesh(triangle_mesh=new_mesh)
         # visualizer.show()
-
-        # TODO 做数据增强
 
         sample_index = np.random.choice(len(new_mesh.vertices), 10000)
         point_cloud, colors = new_mesh.vertices[sample_index], new_mesh.colors[sample_index]
@@ -300,10 +317,6 @@ class ScannetDetectionDataset(Dataset):
 
         target_bboxes_mask[0: instance_bboxes.shape[0]] = 1
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
-
-        # ------------------------------- DATA AUGMENTATION ------------------------------
-        if self.split_set == "train":
-            pass
 
         raw_sizes = target_bboxes[:, 3:6]
         point_cloud_dims_min = (point_cloud.min(axis=0)[:3]).astype(np.float32)

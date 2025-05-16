@@ -24,8 +24,8 @@ trimesh = ">=4.4.9,<5.0.0"
 types-requests = ">=2.32.0.20240914,<3.0.0.0"
 
 [package.source]
-type = "file"
-url = "../AlgorithmAssistant/dist/algorithm_assistant-1.0.11-py3-none-any.whl"
+type = "url"
+url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-1.0.11-py3-none-any.whl"
 
 [[package]]
 name = "aliyun-python-sdk-core"
@@ -2756,4 +2756,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "0f080b415802b8a891adf87e6af4e54d7524544a5b3dfd710fb49c9ad386f2ac"
+content-hash = "e6bb8a97bcdc4db4f996477a4c778640c9bd887b58585175f48cb01a523833de"
