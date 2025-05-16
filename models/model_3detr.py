@@ -9,6 +9,7 @@ from third_party.pointnet2.pointnet2_modules import PointnetSAModuleVotes
 from third_party.pointnet2.pointnet2_utils import furthest_point_sample
 from utils.pc_util import scale_points, shift_scale_points
 
+from algorithm_assistant import Point3D
 from models.helpers import GenericMLP
 from models.position_embedding import PositionEmbeddingCoordsSine
 from models.transformer import (MaskedTransformerEncoder, TransformerDecoder,
@@ -133,7 +134,7 @@ class Model3DETR(nn.Module):
 
         self.num_queries = num_queries
         self.box_processor = BoxProcessor(dataset_config)
-        self.click_point_embedding = nn.Embedding(2, decoder_dim)
+        self.tid_embedding = nn.Embedding(50, decoder_dim)
 
     def build_mlp_heads(self, dataset_config, decoder_dim, mlp_dropout):
         mlp_func = partial(
@@ -176,13 +177,13 @@ class Model3DETR(nn.Module):
 
         self.mlp_heads = nn.ModuleDict(mlp_heads)
 
-    def get_query_embeddings(self, encoder_xyz, point_cloud_dims, click_point):
-        query_inds = furthest_point_sample(encoder_xyz, self.num_queries)
-        # query_inds = torch.stack([torch.randperm(encoder_xyz.shape[1])[:self.num_queries] for _ in range(encoder_xyz.shape[0])]).to(encoder_xyz.device)
-        query_inds = query_inds.long()
-        query_xyz = [torch.gather(encoder_xyz[..., x], 1, query_inds) for x in range(3)]
-        query_xyz = torch.stack(query_xyz)
-        query_xyz = query_xyz.permute(1, 2, 0)
+    def get_query_embeddings(self, encoder_xyz, point_cloud_dims, tid):
+        # query_inds = furthest_point_sample(encoder_xyz, self.num_queries)
+        # # query_inds = torch.stack([torch.randperm(encoder_xyz.shape[1])[:self.num_queries] for _ in range(encoder_xyz.shape[0])]).to(encoder_xyz.device)
+        # query_inds = query_inds.long()
+        # query_xyz = [torch.gather(encoder_xyz[..., x], 1, query_inds) for x in range(3)]
+        # query_xyz = torch.stack(query_xyz)
+        # query_xyz = query_xyz.permute(1, 2, 0)
 
         # from algorithm_assistant import visualizer
         # query_xyz = torch.zeros_like(query_xyz)
@@ -193,15 +194,13 @@ class Model3DETR(nn.Module):
         # query_xyz = gather_operation(xyz_flipped, query_inds.int())
         # query_xyz = query_xyz.transpose(1, 2)
 
-        query_xyz[:, -1, :] = click_point
+        query_xyz = torch.zeros((encoder_xyz.shape[0], 1, 3), dtype=torch.float32).to(tid.device)
 
         pos_embed = self.pos_embedding(query_xyz, input_range=point_cloud_dims)
         query_embed = self.query_projection(pos_embed)
-        # 生成一个mask表示最后一个query点是特殊的点
-        click_point_mask = torch.zeros((query_embed.shape[0], query_embed.shape[2]), dtype=torch.int64).to(query_embed.device)
-        click_point_mask[:, -1] = 1
-        click_point_embed = self.click_point_embedding(click_point_mask).permute(0, 2, 1)
-        return query_xyz, query_embed + click_point_embed
+        tid_embed = self.tid_embedding(tid)
+        query_embed[:, :, 0] += tid_embed
+        return query_xyz, query_embed
 
     def _break_up_pc(self, pc):
         # pc may contain color/normals.
@@ -367,7 +366,7 @@ class Model3DETR(nn.Module):
 
     def forward(self, inputs, encoder_only=False, infer=False):
         point_clouds = inputs["point_clouds"]
-        click_point = inputs["click_point"]
+        tid = inputs["tid"]
 
         enc_xyz, enc_features, enc_inds = self.run_encoder(point_clouds)
         enc_features = self.encoder_to_decoder_projection(
@@ -384,7 +383,7 @@ class Model3DETR(nn.Module):
             inputs["point_cloud_dims_min"],
             inputs["point_cloud_dims_max"],
         ]
-        query_xyz, query_embed = self.get_query_embeddings(enc_xyz, point_cloud_dims, click_point)
+        query_xyz, query_embed = self.get_query_embeddings(enc_xyz, point_cloud_dims, tid)
         # query_embed: batch x channel x npoint
         enc_pos = self.pos_embedding(enc_xyz, input_range=point_cloud_dims)
 

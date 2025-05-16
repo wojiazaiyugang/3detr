@@ -20,7 +20,6 @@ from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
 from utils.pc_util import scale_points, shift_scale_points
 from utils.random_cuboid import RandomCuboid
 from utils import angle_between
-from .scan_tooth import to_line_set
 
 IGNORE_LABEL = -100
 MEAN_COLOR_RGB = np.array([109.8, 97.2, 83.8])

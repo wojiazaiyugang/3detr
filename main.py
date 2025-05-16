@@ -76,11 +76,11 @@ def make_args_parser():
     )
 
     ### Other model params
-    parser.add_argument("--preenc_npoints", default=2048, type=int)
+    parser.add_argument("--preenc_npoints", default=512, type=int)
     parser.add_argument(
         "--pos_embed", default="fourier", type=str, choices=["fourier", "sine"]
     )
-    parser.add_argument("--nqueries", default=256, type=int)
+    parser.add_argument("--nqueries", default=1, type=int)
     parser.add_argument("--use_color", default=False, action="store_true")
 
     ##### Set Loss #####
@@ -128,8 +128,8 @@ def make_args_parser():
         help="Root directory containing the metadata files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
-    parser.add_argument("--dataset_num_workers", default=4, type=int)
-    parser.add_argument("--batchsize_per_gpu", default=7, type=int)
+    parser.add_argument("--dataset_num_workers", default=8, type=int)
+    parser.add_argument("--batchsize_per_gpu", default=40, type=int)
 
     ##### Training #####
     parser.add_argument("--start_epoch", default=-1, type=int)
@@ -142,7 +142,7 @@ def make_args_parser():
     parser.add_argument("--test_ckpt", default=None, type=str)
 
     ##### I/O #####
-    parser.add_argument("--checkpoint_dir", default="outputs/单牙点击检测/10", type=str)
+    parser.add_argument("--checkpoint_dir", default="outputs/单牙点击检测/11", type=str)
     parser.add_argument("--log_every", default=10, type=int)
     parser.add_argument("--log_metrics_every", default=20, type=int)
     parser.add_argument("--save_separate_checkpoint_every_epoch", default=-1, type=int)
@@ -456,8 +456,8 @@ def resume_from_pretrain(pretrain_pth, model_no_ddp, optimizer):
 if __name__ == "__main__":
     parser = make_args_parser()
     args = parser.parse_args()
-    try:
-        set_start_method("spawn")
-    except RuntimeError:
-        pass
+    # try:
+    #     set_start_method("spawn")
+    # except RuntimeError:
+    #     pass
     launch_distributed(args)

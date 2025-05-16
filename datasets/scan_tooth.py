@@ -1,62 +1,28 @@
-import os
-import pickle
-from typing import List
-from copy import deepcopy
+import json
+import random
+from pathlib import Path
+from typing import List, Tuple, Dict
 
 import numpy as np
-import open3d as o3d
 import torch
+from algorithm_assistant import TriangleMesh, ToothKeypoints, ToothAxis, TOOTH, Tooth, ArcType, Sphere, Point3D, Color
 from torch.utils.data import Dataset
+from tqdm import tqdm
+from typing_extensions import TypeAlias
 
-import utils.pc_util as pc_util
 from config import use_axis_head, use_kps_head, KEY_POINT_NAMES
 from utils.box_util import (flip_axis_to_camera_np, flip_axis_to_camera_tensor,
                             get_3d_box_batch_np, get_3d_box_batch_tensor)
+from utils.pc_normalize import get_normalize_transformation
 from utils.pc_util import scale_points, shift_scale_points
-from utils.random_cuboid import RandomCuboid
 
-
-def to_line_set(bboxes) -> List[o3d.geometry.LineSet]:
-    """
-    bbox转line_set
-    :return:
-    """
-    line_sets = []
-    for bbox in bboxes:
-        center = bbox[0:3]
-        size = bbox[3:6]
-        # 获取bbox的8个顶点
-        points = []
-        point1 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
-        point2 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2)
-        point3 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
-        point4 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2)
-        point5 = (center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
-        point6 = (center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2)
-        point7 = (center[0] + size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
-        point8 = (center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] + size[2] / 2)
-        points = [point1, point2, point3, point4, point5, point6, point7, point8]
-
-        lines = (
-            (0, 1), (1, 2), (2, 3), (3, 0),  # 四个面的线索引
-            (4, 5), (5, 6), (6, 7), (7, 4),  # 四个面的线索引
-            (0, 4), (1, 5), (2, 6), (3, 7)  # 四个面的线索引
-        )
-        line_set = o3d.geometry.LineSet(
-            points=o3d.utility.Vector3dVector(points),
-            lines=o3d.utility.Vector2iVector(lines),
-        )
-        colors = [(0, 1, 0) for _ in range(len(lines))]
-        line_set.colors = o3d.utility.Vector3dVector(colors)
-        line_sets.append(line_set)
-    return line_sets
-
+Data: TypeAlias = Tuple[TriangleMesh, Dict[Tooth, Tuple[ToothAxis, ToothKeypoints]]] # 数据，牙齿网格和牙齿信息
 
 class ScannetDatasetConfig(object):
     def __init__(self):
         self.num_semcls = 32 + 1  # 32个牙 一个背景
         self.num_angle_bin = 1
-        self.max_num_obj = 64
+        self.max_num_obj = 1
 
         self.type2class = {
             "background": 0,
@@ -173,95 +139,143 @@ class ScannetDetectionDataset(Dataset):
             use_random_cuboid=False,
             random_cuboid_min_points=30000,
     ):
-
         self.dataset_config = dataset_config
-        assert split_set in ["train", "val"]
         self.split_set = split_set
+        self.datas: List[Data] = []
 
-        self.data_path = root_dir
-        all_scan_names = list(
-            set(
-                [
-                    os.path.basename(x)[0:13]
-                    for x in os.listdir(self.data_path)
-                    if x.startswith("scene")
-                ]
-            )
-        )
-        if split_set == "all":
-            self.scan_names = all_scan_names
-        elif split_set in ["train", "val", "test"]:
-            split_filenames = os.path.join(meta_data_dir, f"scannetv2_{split_set}.txt")
-            with open(split_filenames, "r") as f:
-                self.scan_names = f.read().splitlines()
-            # remove unavailiable scans
-            num_scans = len(self.scan_names)
-            self.scan_names = [
-                sname for sname in self.scan_names if sname in all_scan_names
-            ]
-            # self.scan_names = self.scan_names[:10]
-            print(f"kept {len(self.scan_names)} scans out of {num_scans}")
-        else:
-            raise ValueError(f"Unknown split name {split_set}")
+        for dataset_name in ["20230228", "20230229", "20230230", "20230411", "20231214"][-2:]:
+            dataset = Path("/media/8TB/dataset").joinpath(dataset_name)
+            if split_set == "train":
+                data_names = dataset.joinpath(f"train.txt").read_text().splitlines() + dataset.joinpath(f"val.txt").read_text().splitlines()
+            elif split_set == "val":
+                data_names = dataset.joinpath(f"test.txt").read_text().splitlines()
+            else:
+                raise NotImplementedError
 
-        self.num_points = num_points
-        self.use_color = use_color
-        self.use_height = use_height
-        self.augment = augment
-        self.use_random_cuboid = use_random_cuboid
-        self.random_cuboid_augmentor = RandomCuboid(min_points=random_cuboid_min_points)
+            for data_name in tqdm(data_names, desc=f"加载数据集{dataset_name} {split_set}"):
+                data_dir = dataset.joinpath(data_name)
+                data_dict = {}
+                if dataset_name in ["20230228", "20230229", "20230230", "20230411"]:
+                    keypoint_file = data_dir.joinpath("为了迁移牙轴做的检测结果.json")
+                    if not keypoint_file.exists():
+                        print(f"关键点文件{keypoint_file=}不存在")
+                        continue
+                    for detect_result in json.loads(keypoint_file.read_text()):
+                        tooth = TOOTH.get_tooth_by_category(category=detect_result["category"])
+                        tooth_axis = ToothAxis.from_dict(detect_result["data"]["axis"])
+                        try:
+                            tooth_keypoints = tooth.keypoints_type.from_dict(detect_result["data"]["keypoints"])
+                        except KeyError as err:
+                            print(f"{data_dir=} {err=}")
+                            continue
+                        data_dict[tooth] = tooth_axis, tooth_keypoints
+                else:
+                    keypoint_file = data_dir.joinpath("keypoint.json")
+                    if not keypoint_file.exists():
+                        print(f"关键点文件{keypoint_file=}不存在")
+                        continue
+                    for tid_str, tooth_data in json.loads(keypoint_file.read_text()).items():
+                        tooth = TOOTH.get_tooth_by_tid(tid=int(tid_str))
+                        tooth_axis = ToothAxis.from_dict(tooth_data)
+                        tooth_keypoints = tooth.keypoints_type.from_dict(tooth_data)
+                        data_dict[tooth] = tooth_axis, tooth_keypoints
+                # 把1区和4区的关键点md方向对调，跟md轴保持一致，减小训练难度
+                tooth_keypoints: ToothKeypoints
+                tooth: Tooth
+                for tooth, (_, tooth_keypoints) in data_dict.items():
+                    if tooth.is_area2_tooth or tooth.is_area3_tooth:
+                        continue
+                    if hasattr(tooth_keypoints, "ldc") and hasattr(tooth_keypoints, "lmc"):
+                        tooth_keypoints.ldc, tooth_keypoints.lmc = tooth_keypoints.lmc, tooth_keypoints.ldc
+                    if hasattr(tooth_keypoints, "occm") and hasattr(tooth_keypoints, "occd"):
+                        tooth_keypoints.occm, tooth_keypoints.occd = tooth_keypoints.occd, tooth_keypoints.occm
+                    if hasattr(tooth_keypoints, "bdc") and hasattr(tooth_keypoints, "bmc"):
+                        tooth_keypoints.bmc, tooth_keypoints.bdc = tooth_keypoints.bdc, tooth_keypoints.bmc
+                    if hasattr(tooth_keypoints, "mrm") and hasattr(tooth_keypoints, "mrd"):
+                        tooth_keypoints.mrd, tooth_keypoints.mrm = tooth_keypoints.mrm, tooth_keypoints.mrd
+                    if hasattr(tooth_keypoints, "fcd") and hasattr(tooth_keypoints, "fcm"):
+                        tooth_keypoints.fcm, tooth_keypoints.fcd = tooth_keypoints.fcd, tooth_keypoints.fcm
+                    if hasattr(tooth_keypoints, "nfcd") and hasattr(tooth_keypoints, "nfcm"):
+                        tooth_keypoints.nfcm, tooth_keypoints.nfcd = tooth_keypoints.nfcd, tooth_keypoints.nfcm
+                for arc_type in [ArcType.UPPER, ArcType.LOWER]:
+                    mesh_file = data_dir.joinpath(f"{arc_type.lower()}_jaw.ply")
+                    if not mesh_file.exists():
+                        print(f"网格文件{mesh_file=}不存在")
+                        continue
+                    mesh = TriangleMesh.from_file(mesh_file)
+                    mesh_data = {tooth: tooth_data for tooth, tooth_data in data_dict.items() if tooth.arc_type == arc_type}
+                    if len(mesh_data) == 0:
+                        print(f"没有牙齿数据{data_dir=} {arc_type=}")
+                        continue
+                    self.datas.append((mesh, mesh_data))
+                # if len(self.datas) > 1:
+                #     break
         self.center_normalizing_range = [
             np.zeros((1, 3), dtype=np.float32),
             np.ones((1, 3), dtype=np.float32),
         ]
 
     def __len__(self):
-        return len(self.scan_names)
+        return len(self.datas)
 
-    def __getitem__(self, idx):
-        scan_name = self.scan_names[idx]
-        mesh_vertices = np.load(os.path.join(self.data_path, scan_name) + "_vert.npy")
-        instance_labels = np.load(
-            os.path.join(self.data_path, scan_name) + "_ins_label.npy"
-        )
-        semantic_labels = np.load(
-            os.path.join(self.data_path, scan_name) + "_sem_label.npy"
-        )
-        # 找一个不是背景的点
-        instance_bboxes = np.load(os.path.join(self.data_path, scan_name) + "_bbox.npy")
-        labels = np.unique(instance_bboxes[:, 6])
-        click_point_label = np.random.choice(labels)
-        # 对应所有的点
-        points = mesh_vertices[:, 0:3][semantic_labels == click_point_label]
-        # 随机选择一个点
-        click_point = points[np.random.randint(points.shape[0])]
-        # 随机选择一个点
-        click_point_index = int(np.where(instance_bboxes[:, 6] == click_point_label)[0])
-        instance_bboxes = np.concatenate([instance_bboxes, instance_bboxes[click_point_index: click_point_index + 1]], axis=0)
+    def __getitem__(self, idx: int):
+        mesh, tooth_data = self.datas[idx] # 注意深拷贝问题
+        # 随机选个牙
+        try:
+            tooth_color = random.choice(mesh.colors[(mesh.colors[:, 0] != 0.8) | (mesh.colors[:, 1] != 0.8) | (mesh.colors[:, 2] != 0.8)])
+            tooth: Tooth = TOOTH.get_tooth_by_color(color=Color(red=int(tooth_color[0] * 255), green=int(tooth_color[1] * 255), blue=int(tooth_color[2] * 255)))
+            # tooth = TOOTH.tooth_23
+            tooth_axis, tooth_keypoints = tooth_data[tooth]
+        except KeyError as e:
+            print(f"{idx=} {e=}")
+            return self.__getitem__(0)
+        # 获取这个牙的所有点
+        tooth_vertices = mesh.vertices[(mesh.colors == tooth.color.to_rgb_float_tuple()).all(axis=1)]
+        # 随机选一个点作为点击点
+        click_point = Point3D(*random.choice(tooth_vertices))
+        # 裁剪
+        new_mesh = mesh.crop_by_sphere(sphere=Sphere(center=click_point, radius=15))
+        assert new_mesh, f"{new_mesh=}是空"
+        # 平移到原点
+        transformation = get_normalize_transformation(mesh=new_mesh, click_point=click_point)
+        new_mesh = new_mesh.transform(transformation)
+        tooth_axis = tooth_axis.transform(transformation)
+        tooth_keypoints = tooth_keypoints.transform(transformation)
+
+        # visualizer.add_points([click_point])
+        # visualizer.add_tooth_axis(axis=tooth_axis, point=tooth_keypoints.occc)
+        # visualizer.add_tooth_keypoints(tooth=tooth, tooth_keypoints=tooth_keypoints)
+        # visualizer.add_triangle_mesh(triangle_mesh=mesh)
+        # visualizer.add_triangle_mesh(triangle_mesh=new_mesh)
+        # visualizer.show()
+
+        # TODO 做数据增强
+
+        sample_index = np.random.choice(len(new_mesh.vertices), 10000)
+        point_cloud, colors = new_mesh.vertices[sample_index], new_mesh.colors[sample_index]
+
+        # point_cloud = PointCloud(points=vertices)
+        # visualizer.add_point_cloud(point_cloud, radius=0.15 * transformation[0,0])
+        # visualizer.show()
+
+        tooth_point_cloud = point_cloud[(colors == tooth.color.to_rgb_float_tuple()).all(axis=1)]
+        bbox_start, bbox_end = np.min(tooth_point_cloud, axis=0), np.max(tooth_point_cloud, axis=0)
+        box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
+        instance_bboxes = np.array([np.concatenate([box_center, box_size, np.array([tooth.category])])])
+
         if use_axis_head or use_kps_head:
-            with open(os.path.join(self.data_path, scan_name) + "_kps.pkl", "rb") as f:
-                kps = pickle.load(f)
-                copy_k = deepcopy(kps[click_point_index])
-                kps.append(copy_k)
             if use_axis_head:
-                axisfl = np.array([[item["axisfl"]["x"], item["axisfl"]["y"], item["axisfl"]["z"]] for item in kps])
-                axismd = np.array([[item["axismd"]["x"], item["axismd"]["y"], item["axismd"]["z"]] for item in kps])
-                axisie = np.array([[item["axisie"]["x"], item["axisie"]["y"], item["axisie"]["z"]] for item in kps])
+                axisfl = np.array([tooth_axis.axisfl.to_numpy()])
+                axismd = np.array([tooth_axis.axismd.to_numpy()])
+                axisie = np.array([tooth_axis.axisie.to_numpy()])
+
             if use_kps_head:
                 key_points = {}
                 for kp in KEY_POINT_NAMES:
-                    key_points[kp] = np.array([[item[kp]["x"], item[kp]["y"], item[kp]["z"]] for item in kps])
-            # 把1区和4区的关键点md方向对调，跟md轴保持一致，减小训练难度
-            for index, bbox in enumerate(instance_bboxes):
-                if bbox[6] in [1, 2, 3, 4, 5, 6, 7, 8, 25, 26, 27, 28, 29, 30, 31, 32]:
-                    for kp1, kp2 in [("ldc", "lmc"), ("occm", "occd"), ("bmc", "bdc"), ("mrd", "mrm"), ("fcm", "fcd"), ("nfcm", "nfcd")]:
-                        key_points[kp1][index], key_points[kp2][index] = key_points[kp2][index], key_points[kp1][index].copy()
-        point_cloud = mesh_vertices[:, 0:3]  # do not use color for now
-        pcl_color = mesh_vertices[:, 3:6]
-        # 对point_cloud进行随机偏移-0.05~0.05
-        random_offset = 0.000625
-        point_cloud = (point_cloud + np.random.random(point_cloud.shape) * random_offset * 2 - random_offset).astype(np.float32)
+                    point: Point3D = getattr(tooth_keypoints, kp, Point3D(0,0,0))
+                    key_points[kp] = np.array([point.to_numpy()], dtype=np.float32)
 
+        pcl_color = np.array([0])
         # ------------------------------- LABELS ------------------------------
         MAX_NUM_OBJ = self.dataset_config.max_num_obj
         target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
@@ -288,68 +302,12 @@ class ScannetDetectionDataset(Dataset):
         target_bboxes[0: instance_bboxes.shape[0], :] = instance_bboxes[:, 0:6]
 
         # ------------------------------- DATA AUGMENTATION ------------------------------
-        if self.augment:
-            angle = 12  # -15 ~ +15 degree
-            rot_angle_x = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
-            rot_mat_x = pc_util.rotx(rot_angle_x)
-            rot_angle_y = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
-            rot_mat_y = pc_util.roty(rot_angle_y)
-            rot_angle_z = (np.random.random() * np.pi / (angle / 2)) - np.pi / angle  # -5 ~ +5 degree
-            rot_mat_z = pc_util.rotz(rot_angle_z)
-            rot_mat = np.dot(rot_mat_x, np.dot(rot_mat_y, rot_mat_z))
-
-            show = False
-
-            if show:
-                old_pc = o3d.geometry.PointCloud()
-                old_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-                red = np.array([0.93, 0.93, 0.93])
-                old_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
-                line_sets = to_line_set(target_bboxes)
-                o3d.visualization.draw_geometries([old_pc] + line_sets)
-
-            def compute_bbox(point_cloud, semantic_labels):
-                nonlocal click_point_label
-                target_bboxes = np.zeros((MAX_NUM_OBJ, 6), dtype=np.float32)
-                bboxes = []
-                click_box = None
-                for label in np.unique(semantic_labels):
-                    if label == 0:
-                        continue
-                    pc = point_cloud[semantic_labels == label]
-                    bbox_start, bbox_end = np.min(pc, axis=0), np.max(pc, axis=0)
-                    box_center, box_size = (bbox_start + bbox_end) / 2, bbox_end - bbox_start
-                    bboxes.append(np.concatenate([box_center, box_size]))
-                    if label == click_point_label:
-                        click_box = np.concatenate([box_center, box_size])
-                bboxes = np.array(bboxes)
-                target_bboxes[:bboxes.shape[0]] = bboxes
-                target_bboxes[bboxes.shape[0]] = click_box
-                return target_bboxes
-
-            point_cloud[:, 0:3] = np.dot(point_cloud[:, 0:3], np.transpose(rot_mat))
-            target_bboxes = compute_bbox(point_cloud, semantic_labels)
-
-            if show:
-                new_pc = o3d.geometry.PointCloud()
-                new_pc.points = o3d.utility.Vector3dVector(deepcopy(point_cloud[:, 0:3]))
-                red = np.array([0.93, 0.93, 0.93])
-                new_pc.colors = o3d.utility.Vector3dVector(np.array([red for _ in range(point_cloud.shape[0])]))
-                line_sets = to_line_set(target_bboxes)
-                o3d.visualization.draw_geometries([new_pc] + line_sets)
-
-            if use_axis_head:
-                target_axisfls = np.dot(target_axisfls, np.transpose(rot_mat))
-                target_axismds = np.dot(target_axismds, np.transpose(rot_mat))
-                target_axisies = np.dot(target_axisies, np.transpose(rot_mat))
-
-            if use_kps_head:
-                for kp in key_points:
-                    key_points[kp] = np.dot(key_points[kp], np.transpose(rot_mat))
+        if self.split_set == "train":
+            pass
 
         raw_sizes = target_bboxes[:, 3:6]
-        point_cloud_dims_min = point_cloud.min(axis=0)[:3]
-        point_cloud_dims_max = point_cloud.max(axis=0)[:3]
+        point_cloud_dims_min = (point_cloud.min(axis=0)[:3]).astype(np.float32)
+        point_cloud_dims_max = (point_cloud.max(axis=0)[:3]).astype(np.float32)
 
         box_centers = target_bboxes.astype(np.float32)[:, 0:3]
         box_centers_normalized = shift_scale_points(
@@ -419,5 +377,5 @@ class ScannetDetectionDataset(Dataset):
         if use_kps_head:
             ret_dict["gt_keypoints"] = key_points
             ret_dict["gt_keypoints_normalizeds"] = keypoints_normalized
-        ret_dict["click_point"] = click_point
+        ret_dict["tid"] = tooth.tid
         return ret_dict
