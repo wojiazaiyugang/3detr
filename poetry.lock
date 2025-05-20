@@ -2,12 +2,12 @@
 
 [[package]]
 name = "algorithm_assistant"
-version = "1.0.11"
+version = "1.0.12"
 description = ""
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "algorithm_assistant-1.0.11-py3-none-any.whl", hash = "sha256:2916f5210753eba90c94359908108267566dc3f424f04ec573cba048e0553963"},
+    {file = "algorithm_assistant-1.0.12-py3-none-any.whl", hash = "sha256:ba129ef8df0736b553df85a53f77cbb765dd011b627b2641d382f05a7c2264ba"},
 ]
 
 [package.dependencies]
@@ -25,7 +25,7 @@ types-requests = ">=2.32.0.20240914,<3.0.0.0"
 
 [package.source]
 type = "url"
-url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-1.0.11-py3-none-any.whl"
+url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-1.0.12-py3-none-any.whl"
 
 [[package]]
 name = "aliyun-python-sdk-core"
@@ -2545,7 +2545,7 @@ description = "Tensors and Dynamic neural networks in Python with strong GPU acc
 optional = false
 python-versions = ">=3.6.2"
 files = [
-    {file = "torch-1.8.2%2Bcu111-cp38-cp38-linux_x86_64.whl", hash = "sha256:599109c4fdef980cb598ac8f7bd63fcee5a0f45a5858da9f682e10efb341445e"},
+    {file = "torch-1.8.2+cu111-cp38-cp38-linux_x86_64.whl", hash = "sha256:599109c4fdef980cb598ac8f7bd63fcee5a0f45a5858da9f682e10efb341445e"},
 ]
 
 [package.dependencies]
@@ -2756,4 +2756,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "e6bb8a97bcdc4db4f996477a4c778640c9bd887b58585175f48cb01a523833de"
+content-hash = "ac140b8965aaacf4212271c7fbb7b1173499b05e1c78eb2fff8fd31da15bfe10"

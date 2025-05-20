@@ -25,8 +25,7 @@ def init_model() -> None:
     parser = make_args_parser()
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
-    # model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
-    model_file = Path("/home/yujiannan/Projects/3detr/outputs/单牙点击检测/13/checkpoint_best.pth")
+    model_file = Path(__file__).parent.parent.joinpath("outputs", "单牙点击检测", "13", "checkpoint_best.pth")
     model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
@@ -155,14 +154,18 @@ def infer(mesh: TriangleMesh, click_point: Point3D, tid: int) -> List[ToothDetec
 
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
-    # mesh_file = Path("/media/8TB/dataset/20231214/670384患者姓名石柳/upper_jaw.ply") # 普通数据
-    # mesh_file = Path("/media/8TB/dataset/20241218/from_yuqi_20241111_extract_crown_finish_s2023-12-18_00002-018/upper_jaw.ply") # 牙冠设计数据
-    mesh_file = Path("/media/8TB/dataset/20230313/13292_649486/lower_jaw.stl") # 原始网格
+    mesh_file = Path("/media/8TB/dataset/20231214/670384患者姓名石柳/upper_jaw.ply") # 普通数据
+    # mesh_file = Path("/media/8TB/dataset/20241218/2024-9-14_mod_s113/upper_jaw.ply") # 牙冠设计数据
+    # mesh_file = Path("/media/8TB/dataset/20230313/13292_649486/lower_jaw.stl") # 原始网格
+    # mesh_file = Path("/media/8TB/dataset/20230411/12664_614355/lower_jaw.ply") # 漏牙 拥挤
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
-    click_point = visualizer.get_point(name="F")
+    try:
+        click_point = visualizer.get_point(name="F")
+    except KeyError:
+        click_point = Point3D(0, 0, 0)
     visualizer.add_points([click_point], name="F")
-    tooth_detect_results = infer(mesh=mesh, click_point=click_point, tid=47)
+    tooth_detect_results = infer(mesh=mesh, click_point=click_point, tid=23)
     for tooth_detect_result in tooth_detect_results:
         visualizer.add_tooth_detect_result(detect_result=tooth_detect_result, show_keypoints=True, show_axis=True)
     visualizer.show(block= False)

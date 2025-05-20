@@ -17,7 +17,7 @@ cython = "^0.29.33"
 tensorboardx = "^2.5.1"
 tensorboard = "1.11"
 xiaoliualgorithmhelper = {url = "http://192.168.0.21:10086/simple/XiaoLiuAlgorithmHelper/xiaoliualgorithmhelper-1.0.3-py3-none-any.whl"}
-algorithm-assistant = {url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-1.0.11-py3-none-any.whl"}
+algorithm-assistant = {url = "http://192.168.0.21:10086/simple/AlgorithmAssistant/algorithm_assistant-1.0.12-py3-none-any.whl"}
 
 [build-system]
 requires = ["poetry-core"]
