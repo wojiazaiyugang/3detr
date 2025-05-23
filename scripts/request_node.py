@@ -30,17 +30,15 @@ if __name__ == '__main__':
     try:
         click_point = visualizer.get_point(name="F")
     except KeyError:
-        click_point = Point3D(0, 0, 0)
+        click_point = Point3D(-6.057, 0.332, 28.141)
     visualizer.add_points([click_point], name="F")
     clip_mesh = mesh.crop_by_sphere(sphere=Sphere(center=click_point, radius=15))
     assert clip_mesh is not None
-    mesh_file = Path(__file__).parent.joinpath("temp.json")
-    mesh_file.write_text(json.dumps({
-        "mesh_buffer": mesh_to_b64(mesh=clip_mesh),
-        "mesh_type": "drc"
-    }))
+    mesh_file = Path(__file__).parent.joinpath("temp.drc")
+    clip_mesh.save(mesh_file)
     client = AlgorithmClient(user_name="test_user", password="test_password")
-    tooth = TOOTH.tooth_16
+    tooth = TOOTH.tooth_11
+    save_mesh_suffix = ".ply"
     result = client.submit_task(name="scan_tooth_marker_detection",
                        args={
                            "marker": click_point.to_tuple(),
@@ -48,7 +46,8 @@ if __name__ == '__main__':
                            "mesh_file": mesh_file,
                            "segmentation": {
                                "enable": True
-                           }
+                           },
+                           "save_mesh_suffix": save_mesh_suffix
                        })
     mesh_file.unlink()
     task_result = client.get_task_result(task_id=result["task_id"], timeout=-1)["result"]
@@ -59,7 +58,7 @@ if __name__ == '__main__':
     visualizer.add_tooth_axis(axis=tooth_axis, point=tooth_keypoints.occc)
     visualizer.add_tooth_keypoints(tooth_keypoints=tooth_keypoints, tooth=tooth)
     if "crown" in task_result:
-        crown_file = Path(__file__).parent.joinpath("crown.drc")
+        crown_file = Path(__file__).parent.joinpath(f"crown{save_mesh_suffix}")
         crown_file.write_bytes(requests.get(task_result["crown"]).content)
         visualizer.add_triangle_mesh(triangle_mesh=crown_file, name="分割结果")
         crown_file.unlink()

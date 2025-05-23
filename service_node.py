@@ -4,13 +4,10 @@
 2、检测牙齿轴向、关键点
 3、分割
 """
-import base64
-import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 
-import DracoPy
 import igl
 import numpy as np
 import requests
@@ -38,12 +35,12 @@ def process_request(work_dir: Path, args: Dict[str, Any]) -> Dict[str, Any]:
     :param args:
     :return:
     """
-    mesh_data = json.loads(Path(args["mesh_file"]).read_text())
-    m = DracoPy.decode(base64.b64decode(mesh_data["mesh_buffer"]))
-    mesh = TriangleMesh(vertices=m.points, triangles=m.faces)
+    mesh = TriangleMesh.from_file(Path(args["mesh_file"]))
     click_point = Point3D(*args["marker"])
     tid = int(args["tid"])
     segmentation = args.get("segmentation", {}).get("enable", False)
+    save_mesh_suffix = args.get("save_mesh_suffix", ".drc")
+    assert save_mesh_suffix in [".drc", ".ply", ".obj", ".stl"], f"不支持的文件格式 {save_mesh_suffix=}"
     logger.info(f"{len(mesh.vertices)=} {len(mesh.triangles)=} {click_point=} {tid=} {segmentation=}")
     tooth_detect_result, crown = process(mesh=mesh, click_point=click_point, tid=tid, segmentation=segmentation)
     result: Dict[str, Any]
@@ -53,7 +50,7 @@ def process_request(work_dir: Path, args: Dict[str, Any]) -> Dict[str, Any]:
         "keypoints": {key: [value["x"], value["y"], value["z"]] for key, value in tooth_detect_result.tooth_keypoints.to_dict().items()},
     }
     if crown:
-        save_file = work_dir.joinpath("crown.drc")
+        save_file = work_dir.joinpath(f"crown{save_mesh_suffix}")
         crown.save(file=save_file)
         result.update({
             "crown": save_file

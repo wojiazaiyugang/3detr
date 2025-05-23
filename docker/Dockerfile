@@ -1,5 +1,5 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_marker_detection:20250520 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_marker_detection:20250523 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM nvidia/cuda:11.4.3-devel-ubuntu20.04
 
 WORKDIR /workspace
