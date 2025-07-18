@@ -14,3 +14,4 @@ outputs/
 /checkpoints/
 /scannet/scannet_train_detection_data/
 /scannet/scans
+/detr/
