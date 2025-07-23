@@ -19,10 +19,10 @@ RUN apt update && apt install -y --no-install-recommends libmysqlclient-dev && \
     python -m pip install "poetry<2" && cd /workspace && poetry export -f requirements.txt -o requirements.txt --without-hashes && \
     python -m pip install -r requirements.txt --no-cache-dir
 # 打包代码
-COPY . /workspace/
+COPY third_party/pointnet2 /workspace/third_party/pointnet2
 # 编译
 RUN cd /workspace/third_party/pointnet2 && python setup.py clean --all && TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0+PTX" python setup.py install --install-lib=/usr/local/lib/python3.9/dist-packages
 ## 复制模型
+COPY . /workspace/
 COPY outputs/scan_tooth/42/checkpoint_best.pth /workspace/outputs/scan_tooth/42
-
 CMD ["python", "service_http.py"]
