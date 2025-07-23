@@ -1,0 +1,6 @@
+/.venv/
+/.idea/
+/checkpoints/
+/outputs/
+!/outputs/scan_tooth/42
+/runs/

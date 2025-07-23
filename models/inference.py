@@ -25,7 +25,8 @@ def init_model() -> None:
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
     # model_file = Path("/home/yujiannan/Projects/XiaoLiuInfer/models/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
-    model_file = Path("/home/yujiannan/Projects/3detr/outputs/扫描牙齿检测/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
+    # model_file = Path("/home/yujiannan/Projects/3detr/outputs/扫描牙齿检测/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth")
+    model_file = Path(__file__).parent.parent.joinpath("outputs", "scan_tooth", "42", "checkpoint_best.pth")
     model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
@@ -151,7 +152,8 @@ def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
 
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
-    mesh_file = Path("/media/8TB/dataset/20230228/605643/lower_jaw.ply")
+    # mesh_file = Path("/home/yujiannan/桌面/数据/测试抽壳数据预处理/正轴.ply")
+    mesh_file = Path("/home/yujiannan/文档/1.ply")
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
     tooth_detect_results = infer(mesh=mesh)
