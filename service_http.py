@@ -1,13 +1,15 @@
 """
 牙齿检测
 """
-import time
 import os
+import time
 from typing import Dict, Any, List, Optional
 
 import numpy as np
-from flask import request, Flask
 from algorithm_assistant import logger, run_func_in_new_process, TOOTH, TriangleMesh, Vector3D
+from flask import request, Flask
+
+from utils.data_class import ToothDetect
 
 app = Flask(__name__)
 
@@ -25,6 +27,53 @@ def process_view() -> Dict[str, Any]:
         logger.info(f"检测执行完毕，耗时{time.time() - start_time}秒")
         return result
 
+def post_process_tooth_detect_results(detect_results: List[ToothDetect]) -> List[ToothDetect]:
+    """
+    对牙齿检测结果进行后处理
+    1、过滤低置信度的检测结果
+    2、处理牙号冲突
+    :param detect_results:
+    :return:
+    """
+    # 按照置信度排序
+    detect_results = list(sorted(detect_results, key=lambda x: x.score, reverse=True))
+    # 过滤阈值
+    obj_score = float(os.environ.get("obj_score", 0.81))
+    cls_score = float(os.environ.get("cls_score", 0.81))
+    scores = [(d.label ,round(d.data["obj_score"], 4), round(d.data["cls_score"], 4)) for d in detect_results]
+    logger.info(f"检测到{len(detect_results)}颗牙齿, 过滤前置信度{scores}")
+    # 这里应该是and 但是没有看非常多的数据 怕太严格了，先用or
+    detect_results = [d for d in detect_results if d.data["obj_score"] > obj_score or d.data["cls_score"] > cls_score]
+    if len(detect_results) != len(scores):
+        logger.warning(f"过滤后剩余{len(detect_results)}颗牙齿")
+    else:
+        logger.info(f"过滤后剩余{len(detect_results)}颗牙齿")
+    # 如果牙号冲突，这里尝试解决，如果第一置信度的牙号已经被占了，就看能不能用第二置信度的牙号
+    results = []
+    for detect_result in detect_results:
+        if detect_result.category not in [result.category for result in results]:
+            results.append(detect_result)
+        else:
+            category_score = detect_result.data["category_score"]
+            category_score_list = sorted(category_score.items(), key=lambda x: x[1], reverse=True)
+            if category_score_list[1][1] < 0.001:
+                continue
+            current_tooth = TOOTH.get_tooth_by_category(detect_result.category)
+            target_tooth = TOOTH.get_tooth_by_category(category_score_list[1][0])
+            if target_tooth.category in [result.category for result in results]:
+                logger.warning(f"第一牙号冲突且第二置信度牙号冲突，尝试解决失败，第一牙号{current_tooth.tid}，第二牙号{target_tooth.tid}")
+                continue
+            if (current_tooth.is_lower_tooth and not target_tooth.is_lower_tooth) or (current_tooth.is_upper_tooth and not target_tooth.is_upper_tooth):
+                logger.warning(f"第一牙号冲突，且第二牙号不是同一颌的牙号，尝试解决失败，第一牙号{current_tooth.tid}，第二牙号{target_tooth.tid}")
+                continue
+            logger.warning(f"第一牙号冲突，使用第二置信度的牙号，第一牙号{TOOTH.get_tooth_by_category(detect_result.category).tid}，第二牙号{target_tooth.tid}")
+            detect_result.category = target_tooth.category
+            detect_result.label = target_tooth.name
+            detect_result.score = detect_result.data["obj_score"] * category_score_list[1][1]
+            detect_result.tooth_keypoints = target_tooth.keypoints_type.from_dict(detect_result.data["keypoints"])
+            results.append(detect_result)
+    return results
+
 
 def process(data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     """
@@ -38,6 +87,7 @@ def process(data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     logger.info(f"开始处理检测任务，{vertices.shape=}, {faces.shape=}")
     mesh = TriangleMesh(vertices=vertices, triangles=faces)
     detect_results = infer(mesh=mesh)
+    detect_results = post_process_tooth_detect_results(detect_results=detect_results)
     for tooth_detect_result in detect_results:
         tooth = TOOTH.get_tooth_by_category(category=tooth_detect_result.category)
         # 坐标轴处理成单位向量且正交

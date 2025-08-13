@@ -4,12 +4,13 @@ from typing import List, Optional, Tuple
 import numpy as np
 import numpy.typing as npt
 import torch
-from algorithm_assistant import TriangleMesh, ToothDetectResult3D, BBox3D, Point3D, TOOTH, ToothAxis
+from algorithm_assistant import TriangleMesh, BBox3D, Point3D, TOOTH, ToothAxis
 
 from datasets.scan_tooth import ScannetDatasetConfig
 from main import make_args_parser
 from models.model_3detr import build_3detr, Model3DETR
 from utils.ap_calculator import get_ap_config_dict, parse_predictions, flip_axis_to_depth
+from utils.data_class import ToothDetect
 
 model: Optional[Model3DETR] = None
 device = torch.device("cuda")
@@ -63,7 +64,7 @@ def sample(mesh: TriangleMesh) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.
     vertices = mesh.vertices[sample_index][:sample_count]
     return pc_normalize(vertices)
 
-def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothDetectResult3D]:
+def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothDetect]:
     batch_pred_map_cls = parse_predictions(outputs["box_corners"],
                                            outputs["sem_cls_prob"],
                                            outputs["objectness_prob"],
@@ -101,32 +102,37 @@ def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothD
         bbox3d = BBox3D(point1=Point3D(xyzxyz[0], xyzxyz[1], xyzxyz[2]), point7=Point3D(xyzxyz[3], xyzxyz[4], xyzxyz[5]))
         category = cls
         tooth = TOOTH.get_tooth_by_category(category=category)
-        detect_results.append(ToothDetectResult3D(bbox=bbox3d,
-                                             category=category,
-                                             label=tooth.name,
-                                             score=float(score), # detect_result返回的置信度，是obj_score * cls_score
-                                             tooth_keypoints=tooth.keypoints_type.from_dict(keypoints),
-                                                  tooth_axis=ToothAxis.from_dict({
-                                                     "axisfl": {
-                                                        "x": axisfl[0],
-                                                        "y": axisfl[1],
-                                                        "z": axisfl[2],
-                                                     },
-                                                     "axismd": {
-                                                            "x": axismd[0],
-                                                            "y": axismd[1],
-                                                            "z": axismd[2],
-
-                                                     },
-                                                     "axisie": {
-                                                            "x": axisie[0],
-                                                            "y": axisie[1],
-                                                            "z": axisie[2],
-                                                     },
-                                                 })))
+        detect_results.append(ToothDetect(bbox=bbox3d,
+                                          category=category,
+                                          label=tooth.name,
+                                          score=float(score), # detect_result返回的置信度，是obj_score * cls_score
+                                          tooth_keypoints=tooth.keypoints_type.from_dict(keypoints),
+                                          tooth_axis=ToothAxis.from_dict({
+                                             "axisfl": {
+                                                 "x": axisfl[0],
+                                                 "y": axisfl[1],
+                                                 "z": axisfl[2],
+                                             },
+                                             "axismd": {
+                                                 "x": axismd[0],
+                                                 "y": axismd[1],
+                                                 "z": axismd[2],
+                                             },
+                                             "axisie": {
+                                                 "x": axisie[0],
+                                                 "y": axisie[1],
+                                                 "z": axisie[2],
+                                             }
+                                          }),
+                                          data={
+                                              "obj_score": obj_score,
+                                              "cls_score": cls_prob[cls],
+                                              "category_score": category_score,
+                                              "keypoints": keypoints # 在data里再次返回，是因为外面可能会改牙号，如果牙号改了，keypoints需要用原始数据重新生成
+                                          }))
     return detect_results
 
-def infer(mesh: TriangleMesh) -> List[ToothDetectResult3D]:
+def infer(mesh: TriangleMesh) -> List[ToothDetect]:
     """
     牙齿检测
     :param mesh:
