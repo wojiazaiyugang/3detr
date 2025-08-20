@@ -117,14 +117,14 @@ def make_args_parser():
     parser.add_argument(
         "--dataset_root_dir",
         type=str,
-        default="/media/8TB/dataset/抽壳数据3detr训练临时",
+        default="/media/DATA3/yujiannan/抽壳数据3detr训练临时3/",
         help="Root directory containing the dataset files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
     parser.add_argument(
         "--meta_data_dir",
         type=str,
-        default="/media/8TB/dataset/抽壳数据3detr训练临时",
+        default="/media/DATA3/yujiannan/抽壳数据3detr训练临时3/",
         help="Root directory containing the metadata files. \
               If None, default values from scannet.py/sunrgbd.py are used",
     )
@@ -142,7 +142,7 @@ def make_args_parser():
     parser.add_argument("--test_ckpt", default=None, type=str)
 
     ##### I/O #####
-    parser.add_argument("--checkpoint_dir", default="outputs/scan_tooth/43", type=str)
+    parser.add_argument("--checkpoint_dir", default="outputs/倒凹牙齿检测/1", type=str)
     parser.add_argument("--log_every", default=10, type=int)
     parser.add_argument("--log_metrics_every", default=20, type=int)
     parser.add_argument("--save_separate_checkpoint_every_epoch", default=-1, type=int)
