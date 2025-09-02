@@ -54,7 +54,7 @@ def sample(mesh: TriangleMesh) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.
     :param mesh:
     :return:
     """
-    sample_count = 50000
+    sample_count = 50000 * 2
     point_count = len(mesh.vertices)
     np.random.seed(123)
     sample_index = np.array([], dtype=np.int64)
@@ -158,8 +158,8 @@ def infer(mesh: TriangleMesh) -> List[ToothDetect]:
 
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
-    # mesh_file = Path("/home/yujiannan/桌面/数据/测试抽壳数据预处理/正轴.ply")
-    mesh_file = Path("/home/yujiannan/文档/1.ply")
+    mesh_file = Path("/home/yujiannan/桌面/测试双颌检测.ply")
+    # mesh_file = Path("/home/yujiannan/文档/1.ply")
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")
     tooth_detect_results = infer(mesh=mesh)
