@@ -27,12 +27,13 @@ def process_view() -> Dict[str, Any]:
         logger.info(f"检测执行完毕，耗时{time.time() - start_time}秒")
         return result
 
-def post_process_tooth_detect_results(detect_results: List[ToothDetect]) -> List[ToothDetect]:
+def post_process_tooth_detect_results(detect_results: List[ToothDetect], return_meta: bool) -> List[ToothDetect]:
     """
     对牙齿检测结果进行后处理
     1、过滤低置信度的检测结果
     2、处理牙号冲突
     :param detect_results:
+    :param return_meta:
     :return:
     """
     # 按照置信度排序
@@ -48,6 +49,9 @@ def post_process_tooth_detect_results(detect_results: List[ToothDetect]) -> List
         logger.warning(f"过滤后剩余{len(detect_results)}颗牙齿")
     else:
         logger.info(f"过滤后剩余{len(detect_results)}颗牙齿")
+    if return_meta:
+        # return_meta的时候不进行牙号冲突处理，全量返回
+        return detect_results
     # 如果牙号冲突，这里尝试解决，如果第一置信度的牙号已经被占了，就看能不能用第二置信度的牙号
     results = []
     for detect_result in detect_results:
@@ -84,10 +88,13 @@ def process(data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     from models.inference import infer
 
     vertices, faces = np.array(data["scan_mesh"]["vertices"]), np.array(data["scan_mesh"]["faces"])
-    logger.info(f"开始处理检测任务，{vertices.shape=}, {faces.shape=}")
+    # 是否返回meta信息，默认为False，如果为True，检测到的box将不会进行去重，同时额外返回全量的关键点数据
+    return_meta: bool = data.get("return_meta", False)
+
+    logger.info(f"开始处理检测任务，{return_meta=} {vertices.shape=}, {faces.shape=}")
     mesh = TriangleMesh(vertices=vertices, triangles=faces)
     detect_results = infer(mesh=mesh)
-    detect_results = post_process_tooth_detect_results(detect_results=detect_results)
+    detect_results = post_process_tooth_detect_results(detect_results=detect_results, return_meta=return_meta)
     for tooth_detect_result in detect_results:
         tooth = TOOTH.get_tooth_by_category(category=tooth_detect_result.category)
         # 坐标轴处理成单位向量且正交
@@ -99,36 +106,52 @@ def process(data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
         tooth_detect_result.tooth_axis.axismd = Vector3D.from_numpy(axismd / np.linalg.norm(axismd))
         if tooth.is_area1_tooth or tooth.is_area2_tooth:
             tooth_detect_result.tooth_axis.axisfl = tooth_detect_result.tooth_axis.axisfl.inverse()
-        keypoints = tooth_detect_result.tooth_keypoints
+        keypoints, data = tooth_detect_result.tooth_keypoints, tooth_detect_result.data
         if tooth.is_area1_tooth or tooth.is_area4_tooth:
             # 对调1区和4区的部分关键点
             if hasattr(keypoints, "lmc") and hasattr(keypoints, "ldc"):
                 keypoints.lmc, keypoints.ldc = keypoints.ldc, keypoints.lmc
+                data["keypoints"]["lmc"], data["keypoints"]["ldc"] = data["keypoints"]["ldc"], data["keypoints"]["lmc"]
             if hasattr(keypoints, "occm") and hasattr(keypoints, "occd"):
                 keypoints.occm, keypoints.occd = keypoints.occd, keypoints.occm
+                data["keypoints"]["occm"], data["keypoints"]["occd"] = data["keypoints"]["occd"], data["keypoints"]["occm"]
             if hasattr(keypoints, "bmc") and hasattr(keypoints, "bdc"):
                 keypoints.bmc, keypoints.bdc = keypoints.bdc, keypoints.bmc
+                data["keypoints"]["bmc"], data["keypoints"]["bdc"] = data["keypoints"]["bdc"], data["keypoints"]["bmc"]
             if hasattr(keypoints, "mrm") and hasattr(keypoints, "mrd"):
                 keypoints.mrm, keypoints.mrd = keypoints.mrd, keypoints.mrm
+                data["keypoints"]["mrm"], data["keypoints"]["mrd"] = data["keypoints"]["mrd"], data["keypoints"]["mrm"]
             if hasattr(keypoints, "fcm") and hasattr(keypoints, "fcd"):
                 keypoints.fcm, keypoints.fcd = keypoints.fcd, keypoints.fcm
+                data["keypoints"]["fcm"], data["keypoints"]["fcd"] = data["keypoints"]["fcd"], data["keypoints"]["fcm"]
             if hasattr(keypoints, "nfcm") and hasattr(keypoints, "nfcd"):
                 keypoints.nfcm, keypoints.nfcd = keypoints.nfcd, keypoints.nfcm
+                data["keypoints"]["nfcm"], data["keypoints"]["nfcd"] = data["keypoints"]["nfcd"], data["keypoints"]["nfcm"]
 
     # 只返回需要的字段
-    response_data = []
+    result = []
     for detect_result in detect_results:
-        bbox = detect_result.bbox
+        bbox, data = detect_result.bbox, detect_result.data
         assert detect_result.category and detect_result.tooth_keypoints and detect_result.tooth_axis
         tooth = TOOTH.get_tooth_by_category(detect_result.category)
-        response_data.append({
+        response_data = {
             "tid": str(tooth.tid),
             "bbox": [list(bbox.point1.to_tuple()), list(bbox.point7.to_tuple())],
             "tooth_keypoints": detect_result.tooth_keypoints.to_dict(),
             "tooth_axis": detect_result.tooth_axis.to_dict(),
             "score": detect_result.score
-        })
-    return response_data
+        }
+        if return_meta:
+            response_data["keypoints"] = data["keypoints"]
+            # noinspection PyTypeChecker
+            response_data["category_info"] = list(sorted([
+                {
+                    "tid": TOOTH.get_tooth_by_category(category).tid,
+                    "score": score
+                } for category, score in data["category_score"].items() if category != 0
+            ], key=lambda x: x["score"], reverse=True))[:5]
+        result.append(response_data)
+    return result
 
 
 if __name__ == '__main__':
