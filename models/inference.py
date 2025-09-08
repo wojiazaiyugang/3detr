@@ -54,7 +54,7 @@ def sample(mesh: TriangleMesh) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.
     :param mesh:
     :return:
     """
-    sample_count = 50000 * 2
+    sample_count = 50000
     point_count = len(mesh.vertices)
     np.random.seed(123)
     sample_index = np.array([], dtype=np.int64)
