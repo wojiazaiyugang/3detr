@@ -1,5 +1,5 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250908 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_detection:20250911 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM nvidia/cuda:11.4.3-devel-ubuntu20.04
 
 WORKDIR /workspace
@@ -24,5 +24,5 @@ COPY third_party/pointnet2 /workspace/third_party/pointnet2
 RUN cd /workspace/third_party/pointnet2 && python setup.py clean --all && TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0+PTX" python setup.py install --install-lib=/usr/local/lib/python3.9/dist-packages
 ## 复制模型
 COPY . /workspace/
-COPY outputs/倒凹牙齿检测/2/checkpoint_best.pth /workspace/outputs/倒凹牙齿检测/2
+COPY "outputs/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth" /workspace/outputs/
 CMD ["python", "service_http.py"]

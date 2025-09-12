@@ -2,5 +2,5 @@
 /.idea/
 /checkpoints/
 /outputs/
-!/outputs/倒凹牙齿检测/2
+!/outputs/*.pth
 /runs/
