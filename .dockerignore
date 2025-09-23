@@ -1,6 +1,4 @@
 /.venv/
 /.idea/
 /checkpoints/
-/outputs/
-!/outputs/*.pth
 /runs/

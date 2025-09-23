@@ -1,5 +1,5 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_detection:20250923 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250923 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel AS builder
 WORKDIR /workspace
 # 安装python包
@@ -42,5 +42,5 @@ RUN python -m nuitka --module --remove-output --no-pyi-file --include-package=da
     python -m nuitka --module --remove-output --no-pyi-file criterion.py && rm criterion.py && \
     python -m nuitka --remove-output --no-pyi-file service_http.py --static-libpython=no && rm service_http.py
 # 复制模型文件
-COPY "outputs/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth" /workspace/outputs/
+COPY "outputs/倒凹牙齿检测/2/checkpoint_best.pth" /workspace/outputs/倒凹牙齿检测/2/
 CMD ["./service_http.bin"]
