@@ -1,28 +1,46 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_detection:20250911 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
-FROM nvidia/cuda:11.4.3-devel-ubuntu20.04
-
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/scan_tooth_detection:20250923 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel AS builder
 WORKDIR /workspace
-
-# 安装系统依赖和Python
-RUN apt update && \
-    DEBIAN_FRONTEND=noninteractive apt install -y --fix-missing --no-install-recommends libx11-dev libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx software-properties-common libopenblas-dev && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt install -y --no-install-recommends --fix-missing python3.9 python3.9-dev python3.9-distutils python3-pip && \
-    ln -sf /usr/bin/python3.9 /usr/bin/python && \
-    apt clean -y && rm -rf /var/cache/debconf/* /var/lib/apt/lists/* /var/log/* /var/tmp/* && rm -rf /tmp/* 
-
 # 安装python包
 COPY pyproject.toml poetry.lock /workspace/
-RUN apt update && apt install -y --no-install-recommends libmysqlclient-dev && \
+RUN apt update && apt install -y gcc g++ libmysqlclient-dev libx11-dev libx11-6 libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx libgomp1 --fix-missing --ignore-missing && \
     python -m pip install -U pip setuptools && \
     python -m pip install "poetry<2" && cd /workspace && poetry export -f requirements.txt -o requirements.txt --without-hashes && \
-    python -m pip install -r requirements.txt --no-cache-dir --resume-retries 10
+    python -m pip install -r requirements.txt
 # 打包代码
 COPY third_party/pointnet2 /workspace/third_party/pointnet2
 # 编译
-RUN cd /workspace/third_party/pointnet2 && python setup.py clean --all && TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0+PTX" python setup.py install --install-lib=/usr/local/lib/python3.9/dist-packages
+RUN cd /workspace/third_party/pointnet2 && python setup.py clean --all && TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0+PTX" python setup.py install --install-lib=/opt/conda/lib/python3.10/site-packages/
 ## 复制模型
-COPY . /workspace/
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+RUN apt update && apt install -y gcc g++ libx11-dev libx11-6 libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx libgomp1 --fix-missing --ignore-missing
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /opt/conda/lib/python3.10/site-packages/ /opt/conda/lib/python3.10/site-packages/
+COPY datasets /workspace/datasets/
+COPY detr /workspace/detr/
+COPY models /workspace/models/
+COPY scannet /workspace/scannet/
+COPY utils /workspace/utils/
+COPY third_party /workspace/third_party/
+COPY service_http.py /workspace/
+COPY config.py /workspace/
+COPY main.py /workspace/
+COPY engine.py /workspace/
+COPY optimizer.py /workspace/
+COPY criterion.py /workspace/
+RUN python -m nuitka --module --remove-output --no-pyi-file --include-package=datasets datasets && rm -r datasets && \
+    python -m nuitka --module --remove-output --no-pyi-file --include-package=detr detr && rm -r detr && \
+    python -m nuitka --module --remove-output --no-pyi-file --include-package=models models && rm -r models && \
+    python -m nuitka --module --remove-output --no-pyi-file --include-package=scannet scannet && rm -r scannet && \
+    python -m nuitka --module --remove-output --no-pyi-file --include-package=utils utils && rm -r utils && \
+    python -m nuitka --module --remove-output --no-pyi-file --include-package=third_party third_party && rm -r third_party && \
+    python -m nuitka --module --remove-output --no-pyi-file config.py && rm config.py && \
+    python -m nuitka --module --remove-output --no-pyi-file main.py && rm main.py && \
+    python -m nuitka --module --remove-output --no-pyi-file engine.py && rm engine.py && \
+    python -m nuitka --module --remove-output --no-pyi-file optimizer.py && rm optimizer.py && \
+    python -m nuitka --module --remove-output --no-pyi-file criterion.py && rm criterion.py && \
+    python -m nuitka --remove-output --no-pyi-file service_http.py --static-libpython=no && rm service_http.py
+# 复制模型文件
 COPY "outputs/scan_tooth_det_with_axis_and_kps_3detr_20230228-new-axis+20230229-new-axis+20230230-new-axis+20230411-new-axis+20231214_mAP0.25_96.07_mAP0.5_95.49_mAP0.75_91.38_20240218.pth" /workspace/outputs/
-CMD ["python", "service_http.py"]
+CMD ["./service_http.bin"]
