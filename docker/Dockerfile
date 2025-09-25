@@ -1,8 +1,9 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250923 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250924 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel AS builder
 WORKDIR /workspace
 # 安装python包
+COPY docker/sources.list /etc/apt/sources.list
 COPY pyproject.toml poetry.lock /workspace/
 RUN apt update && apt install -y gcc g++ libmysqlclient-dev libx11-dev libx11-6 libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx libgomp1 --fix-missing --ignore-missing && \
     python -m pip install -U pip setuptools && \

@@ -1,6 +1,7 @@
 """
 牙齿检测
 """
+import json
 import os
 import time
 from typing import Dict, Any, List, Optional
@@ -10,8 +11,23 @@ from algorithm_assistant import logger, run_func_in_new_process, TOOTH, Triangle
 from flask import request, Flask
 
 from utils.data_class import ToothDetect
+from utils.aes import encrypt
 
 app = Flask(__name__)
+
+@app.route("/", methods=["POST"])
+def process_view2() -> Dict[str, Any]:
+    retain_gpu_model = str(os.environ.get("retain_gpu_model")).upper() == "TRUE"  # 是否在GPU上保留模型
+    logger.info(f"接收到请求, {retain_gpu_model=}")
+    start_time = time.time()
+    if not retain_gpu_model:
+        data = run_func_in_new_process(process, 20, request.json)
+        logger.info(f"""检测进程执行{"成功" if data is not None else "失败"}，耗时{time.time() - start_time}秒""")
+        result = {"teeth_bboxes": data}
+    else:
+        result = {"teeth_bboxes": process(request.json)}  # type: ignore
+        logger.info(f"检测执行完毕，耗时{time.time() - start_time}秒")
+    return encrypt(json.dumps(result))
 
 @app.route("/scan_tooth_detect", methods=["POST"])
 def process_view() -> Dict[str, Any]:
