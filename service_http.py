@@ -43,7 +43,7 @@ def process_view() -> Dict[str, Any]:
         logger.info(f"检测执行完毕，耗时{time.time() - start_time}秒")
         return result
 
-def post_process_tooth_detect_results(detect_results: List[ToothDetect], return_meta: bool) -> List[ToothDetect]:
+def post_process_tooth_detect_results(detect_results: List[ToothDetect], return_meta: bool, score: float) -> List[ToothDetect]:
     """
     对牙齿检测结果进行后处理
     1、过滤低置信度的检测结果
@@ -55,8 +55,8 @@ def post_process_tooth_detect_results(detect_results: List[ToothDetect], return_
     # 按照置信度排序
     detect_results = list(sorted(detect_results, key=lambda x: x.score, reverse=True))
     # 过滤阈值
-    obj_score = float(os.environ.get("obj_score", 0.81))
-    cls_score = float(os.environ.get("cls_score", 0.81))
+    obj_score = float(os.environ.get("obj_score", score))
+    cls_score = float(os.environ.get("cls_score", score))
     scores = [(d.label ,round(d.data["obj_score"], 4), round(d.data["cls_score"], 4)) for d in detect_results]
     logger.info(f"检测到{len(detect_results)}颗牙齿, 过滤前置信度{scores}")
     # 这里应该是and 但是没有看非常多的数据 怕太严格了，先用or
@@ -106,11 +106,12 @@ def process(data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     vertices, faces = np.array(data["scan_mesh"]["vertices"]), np.array(data["scan_mesh"]["faces"])
     # 是否返回meta信息，默认为False，如果为True，检测到的box将不会进行去重，同时额外返回全量的关键点数据
     return_meta: bool = data.get("return_meta", False)
+    score: float = data.get("score", 0.81)
 
     logger.info(f"开始处理检测任务，{return_meta=} {vertices.shape=}, {faces.shape=}")
     mesh = TriangleMesh(vertices=vertices, triangles=faces)
     detect_results = infer(mesh=mesh)
-    detect_results = post_process_tooth_detect_results(detect_results=detect_results, return_meta=return_meta)
+    detect_results = post_process_tooth_detect_results(detect_results=detect_results, return_meta=return_meta, score=score)
     for tooth_detect_result in detect_results:
         tooth = TOOTH.get_tooth_by_category(category=tooth_detect_result.category)
         # 坐标轴处理成单位向量且正交

@@ -1,5 +1,5 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250924 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250926 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel AS builder
 WORKDIR /workspace
 # 安装python包
@@ -13,11 +13,6 @@ RUN apt update && apt install -y gcc g++ libmysqlclient-dev libx11-dev libx11-6 
 COPY third_party/pointnet2 /workspace/third_party/pointnet2
 # 编译
 RUN cd /workspace/third_party/pointnet2 && python setup.py clean --all && TORCH_CUDA_ARCH_LIST="3.5;5.0;6.0;6.1;7.0+PTX" python setup.py install --install-lib=/opt/conda/lib/python3.10/site-packages/
-## 复制模型
-FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
-RUN apt update && apt install -y gcc g++ libx11-dev libx11-6 libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx libgomp1 --fix-missing --ignore-missing
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /opt/conda/lib/python3.10/site-packages/ /opt/conda/lib/python3.10/site-packages/
 COPY datasets /workspace/datasets/
 COPY detr /workspace/detr/
 COPY models /workspace/models/
@@ -42,6 +37,13 @@ RUN python -m nuitka --module --remove-output --no-pyi-file --include-package=da
     python -m nuitka --module --remove-output --no-pyi-file optimizer.py && rm optimizer.py && \
     python -m nuitka --module --remove-output --no-pyi-file criterion.py && rm criterion.py && \
     python -m nuitka --remove-output --no-pyi-file service_http.py --static-libpython=no && rm service_http.py
+## 复制模型
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+RUN apt update && apt install -y gcc g++ libx11-dev libx11-6 libxext-dev libxtst-dev libxrender-dev libxmu-dev libxmuu-dev libgl1-mesa-glx libgomp1 --fix-missing --ignore-missing
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /opt/conda/lib/python3.10/site-packages/ /opt/conda/lib/python3.10/site-packages/
+COPY --from=builder /workspace/*.so /workspace/
+COPY --from=builder /workspace/service_http.bin /workspace/
 # 复制模型文件
 COPY "outputs/倒凹牙齿检测/2/checkpoint_best.pth" /workspace/outputs/倒凹牙齿检测/2/
 CMD ["./service_http.bin"]
