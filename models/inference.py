@@ -1,3 +1,4 @@
+import io
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -5,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from algorithm_assistant import TriangleMesh, BBox3D, Point3D, TOOTH, ToothAxis
+import py_obfuscate_data_pkg
 
 from datasets.scan_tooth import ScannetDatasetConfig
 from main import make_args_parser
@@ -25,8 +27,8 @@ def init_model() -> None:
     parser = make_args_parser()
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
-    model_file = Path(__file__).parent.parent.joinpath("outputs", "倒凹牙齿检测", "2", "checkpoint_best.pth")
-    model.load_state_dict(torch.load(str(model_file), map_location=torch.device("cpu"))["model"], strict=False)
+    model_file = Path(__file__).parent.parent.joinpath("outputs", "倒凹牙齿检测", "2", "checkpoint_best.pth.enc")
+    model.load_state_dict(torch.load(io.BytesIO(py_obfuscate_data_pkg.deobfuscate_data_bytes(model_file.read_bytes())), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
 

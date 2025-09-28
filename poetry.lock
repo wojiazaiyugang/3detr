@@ -2102,6 +2102,25 @@ url = "https://pypi.mirrors.ustc.edu.cn/simple"
 reference = "ustc"
 
 [[package]]
+name = "py_obfuscate_data_pkg"
+version = "0.2.0"
+description = ""
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "python_version == \"3.10\""
+files = [
+    {file = "py_obfuscate_data_pkg-0.2.0-py310-none-any.whl", hash = "sha256:f9add44fc5820f9cf9446d00be6db6c28167df96da4ce913fe7f40cf4b33696a"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.source]
+type = "url"
+url = "http://192.168.0.21:10086/simple/py_obfuscate_data_pkg/py_obfuscate_data_pkg-0.2.0-py310-none-any.whl"
+
+[[package]]
 name = "pycryptodome"
 version = "3.23.0"
 description = "Cryptographic library for Python"
@@ -3348,4 +3367,4 @@ reference = "ustc"
 [metadata]
 lock-version = "2.1"
 python-versions = "3.10.*"
-content-hash = "f632f3ca71a974d25317f2f9ebaacd75242422c34ce05d9824ac5c3fd7a74b0e"
+content-hash = "ef7a7a1b52f3f36258cda1b887e83534a8daa573542e9a5babb5983cbe068f88"
