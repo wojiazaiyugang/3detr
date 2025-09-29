@@ -21,7 +21,7 @@ def process_view2() -> Dict[str, Any]:
     logger.info(f"接收到请求, {retain_gpu_model=}")
     start_time = time.time()
     if not retain_gpu_model:
-        data = run_func_in_new_process(process, 20, request.json)
+        data = run_func_in_new_process(process, 60, request.json)
         logger.info(f"""检测进程执行{"成功" if data is not None else "失败"}，耗时{time.time() - start_time}秒""")
         result = {"teeth_bboxes": data}
     else:

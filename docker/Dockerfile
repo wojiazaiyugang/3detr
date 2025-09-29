@@ -1,5 +1,5 @@
 # 打包命令
-# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250928 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+# docker build -t registry.cn-hangzhou.aliyuncs.com/xiaoliutech/vfill_scan_tooth_detection:20250929 -f docker/Dockerfile . --network host --build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890
 FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel AS builder
 WORKDIR /workspace
 # 安装python包
@@ -45,5 +45,5 @@ COPY --from=builder /opt/conda/lib/python3.10/site-packages/ /opt/conda/lib/pyth
 COPY --from=builder /workspace/*.so /workspace/
 COPY --from=builder /workspace/service_http.bin /workspace/
 # 复制模型文件
-COPY "outputs/倒凹牙齿检测/2/checkpoint_best.pth.enc" /workspace/outputs/倒凹牙齿检测/2/
+COPY "outputs/倒凹牙齿检测/2/checkpoint_best.pth.enc2" /workspace/outputs/倒凹牙齿检测/2/
 CMD ["./service_http.bin"]

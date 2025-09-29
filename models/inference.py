@@ -27,8 +27,9 @@ def init_model() -> None:
     parser = make_args_parser()
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
-    model_file = Path(__file__).parent.parent.joinpath("outputs", "倒凹牙齿检测", "2", "checkpoint_best.pth.enc")
-    model.load_state_dict(torch.load(io.BytesIO(py_obfuscate_data_pkg.deobfuscate_data_bytes(model_file.read_bytes())), map_location=torch.device("cpu"))["model"], strict=False)
+    model_file = Path(__file__).parent.parent.joinpath("outputs", "倒凹牙齿检测", "2", "checkpoint_best.pth.enc2")
+    data = model_file.read_bytes()
+    model.load_state_dict(torch.load(io.BytesIO(py_obfuscate_data_pkg.deobfuscate_data_bytes(data[:5242884]) + data[5242884:]), map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
 
