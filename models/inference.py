@@ -27,9 +27,8 @@ def init_model() -> None:
     parser = make_args_parser()
     args, _ = parser.parse_known_args()
     model, _ = build_3detr(args, dataset_config)
-    model_file = Path(__file__).parent.parent.joinpath("outputs", "倒凹牙齿检测", "2", "checkpoint_best.pth.enc2")
-    data = model_file.read_bytes()
-    model.load_state_dict(torch.load(io.BytesIO(py_obfuscate_data_pkg.deobfuscate_data_bytes(data[:5242884]) + data[5242884:]), map_location=torch.device("cpu"))["model"], strict=False)
+    model_file = Path(__file__).parent.parent.joinpath("outputs", "附件检测", "1", "checkpoint_best.pth")
+    model.load_state_dict(torch.load(model_file, map_location=torch.device("cpu"))["model"], strict=False)
     model.to(device)
     model.eval()
 
@@ -75,29 +74,13 @@ def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothD
 
     bboxes, detect_results = [], []
     for pred in batch_pred_map_cls[0]:
-        cls_prob, box, obj_score, axisfl, axismd, axisie, keypoints = pred
+        cls_prob, box, obj_score = pred
         cls = int(np.argmax(cls_prob))
         score = obj_score * cls_prob[cls]  # detect_result返回的置信度，是score和cls_prob的乘积
         # cls_prob按照概率从大到小排序，组成一个list，每个元素是一个tuple，tuple的第一个元素是概率，第二个元素是类别
         category_score = {int(category): float(prob) for category, prob in enumerate(cls_prob)}
         box = flip_axis_to_depth(box)
         box = box * m + centroid
-        for kp in keypoints:
-            keypoints[kp] = keypoints[kp] * m + centroid
-            keypoints[kp] = {
-                "x": keypoints[kp][0],
-                "y": keypoints[kp][1],
-                "z": keypoints[kp][2],
-            }
-        # axisfl = flip_axis_to_depth(axisfl)
-        # axisfl = axisfl * m + centroid
-        # 把轴向处理成单位向量
-        axisfl = axisfl / np.linalg.norm(axisfl)
-        axismd = axismd / np.linalg.norm(axismd)
-        axisie = axisie / np.linalg.norm(axisie)
-        axisfl = axisfl.tolist()
-        axismd = axismd.tolist()
-        axisie = axisie.tolist()
         start, end = np.min(box, axis=0), np.max(box, axis=0)
         xyzxyz = tuple(map(float, tuple(np.concatenate([start, end]))))
         bbox3d = BBox3D(point1=Point3D(xyzxyz[0], xyzxyz[1], xyzxyz[2]), point7=Point3D(xyzxyz[3], xyzxyz[4], xyzxyz[5]))
@@ -107,29 +90,10 @@ def parse_output(point_clouds, outputs, config_dict, centroid, m) -> List[ToothD
                                           category=category,
                                           label=tooth.name,
                                           score=float(score), # detect_result返回的置信度，是obj_score * cls_score
-                                          tooth_keypoints=tooth.keypoints_type.from_dict(keypoints),
-                                          tooth_axis=ToothAxis.from_dict({
-                                             "axisfl": {
-                                                 "x": axisfl[0],
-                                                 "y": axisfl[1],
-                                                 "z": axisfl[2],
-                                             },
-                                             "axismd": {
-                                                 "x": axismd[0],
-                                                 "y": axismd[1],
-                                                 "z": axismd[2],
-                                             },
-                                             "axisie": {
-                                                 "x": axisie[0],
-                                                 "y": axisie[1],
-                                                 "z": axisie[2],
-                                             }
-                                          }),
                                           data={
                                               "obj_score": obj_score,
                                               "cls_score": cls_prob[cls],
                                               "category_score": category_score,
-                                              "keypoints": keypoints # 在data里再次返回，是因为外面可能会改牙号，如果牙号改了，keypoints需要用原始数据重新生成
                                           }))
     return detect_results
 
@@ -159,7 +123,7 @@ def infer(mesh: TriangleMesh) -> List[ToothDetect]:
 
 if __name__ == '__main__':
     from algorithm_assistant import visualizer
-    mesh_file = Path("/home/yujiannan/桌面/测试双颌检测.ply")
+    mesh_file = Path("/media/8TB/dataset/附件附件数据集/val/3029_upper.ply")
     # mesh_file = Path("/home/yujiannan/文档/1.ply")
     mesh = TriangleMesh.from_file(mesh_file)
     visualizer.add_triangle_mesh(triangle_mesh=mesh_file, name="网格")

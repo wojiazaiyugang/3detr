@@ -2822,6 +2822,24 @@ url = "https://pypi.mirrors.ustc.edu.cn/simple"
 reference = "ustc"
 
 [[package]]
+name = "py-obfuscate-data-pkg"
+version = "0.2.0"
+description = ""
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "py_obfuscate_data_pkg-0.2.0-py38-none-any.whl", hash = "sha256:5cafdd51d51cf9e0084840aa2d883401ce51ee898310591a80ffeb87a13c7574"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.source]
+type = "url"
+url = "http://192.168.0.21:10086/simple/py_obfuscate_data_pkg/py_obfuscate_data_pkg-0.2.0-py38-none-any.whl"
+
+[[package]]
 name = "pyparsing"
 version = "3.1.4"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -4198,4 +4216,4 @@ reference = "ustc"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.8,<3.12"
-content-hash = "ed447b99e17ebfc3d654ff2745fed7159b238af6224af5f923945167603e6f72"
+content-hash = "696f2afdaadbffd255ad66e1979fa090fbe1fb4624b50df08a72307280c92f2e"
